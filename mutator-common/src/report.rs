@@ -1,28 +1,73 @@
+//! A module for generating concise, valuable reports.
 // Copyright © Eiger
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
+    fs,
     path::{Path, PathBuf},
 };
 use tabled::{builder::Builder, settings::Style};
 
-/// This struct represents a report of the specification testing.
+/// The final status of the mutant after running the tests on it.
+#[derive(Debug)]
+pub enum MutantStatus {
+    /// Killed mutant.
+    Killed,
+    /// Alive mutant.
+    Alive,
+}
+
+/// This struct represents a report single mutation test.
+#[derive(Debug)]
+pub struct MiniReport {
+    /// The original file name.
+    pub original_file: PathBuf,
+    /// Qualified name for the function using the 'module::function' syntax.
+    pub qname: String,
+    /// Mutant status after testing it.
+    pub mutant_status: MutantStatus,
+    /// A file difference that identifies mutants.
+    pub diff: String,
+}
+
+impl MiniReport {
+    /// Create a new [`MiniReport`].
+    pub fn new(
+        original_file: PathBuf,
+        qname: String,
+        mutant_status: MutantStatus,
+        diff: String,
+    ) -> Self {
+        Self {
+            original_file,
+            qname,
+            mutant_status,
+            diff,
+        }
+    }
+}
+
+/// This struct represents a report of the mutation and spec testing.
+///
 /// It contains the list of entries, where each entry is a file and the number of mutants tested
 /// and killed in that file (in form of a `ReportEntry` structure).
-#[derive(Debug, Serialize)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Report {
     /// The list of entries in the report.
     files: BTreeMap<PathBuf, Vec<MutantStats>>,
+    /// Package directory location.
+    package_dir: PathBuf,
 }
 
 impl Report {
     /// Creates a new report.
-    pub fn new() -> Self {
+    pub fn new(package_dir: PathBuf) -> Self {
         Self {
             files: BTreeMap::new(),
+            package_dir,
         }
     }
 
@@ -49,7 +94,7 @@ impl Report {
         self.total_count(|v| v.killed)
     }
 
-    /// Add a diff for a not killed mutant.
+    /// Add a diff for a survived mutant.
     pub fn add_mutants_alive_diff(&mut self, path: &Path, module_func: &str, diff: &str) {
         let entry = self
             .files
@@ -65,11 +110,40 @@ impl Report {
         }
     }
 
+    /// Add a diff for a killed mutant.
+    pub fn add_mutants_killed_diff(&mut self, path: &Path, module_func: &str, diff: &str) {
+        let entry = self
+            .files
+            .entry(path.to_path_buf())
+            .or_insert(vec![MutantStats::new(module_func)]);
+
+        if let Some(stat) = entry.iter_mut().find(|s| s.module_func == module_func) {
+            stat.mutants_killed_diff.push(diff.to_owned());
+        } else {
+            let mut new_entry = MutantStats::new(module_func);
+            new_entry.mutants_killed_diff.push(diff.to_owned());
+            entry.push(new_entry);
+        }
+    }
+
     /// Save the report to a JSON file.
+    ///
     /// The file is created if it does not exist, otherwise it is overwritten.
-    pub fn save_to_json_file(&self, path: &PathBuf) -> anyhow::Result<()> {
-        let file = std::fs::File::create(path)?;
+    pub fn save_to_json_file(&self, path: &Path) -> anyhow::Result<()> {
+        let file = fs::File::create(path)?;
         Ok(serde_json::to_writer_pretty(file, self)?)
+    }
+
+    /// Load the report from a JSON file.
+    pub fn load_from_json_file(path: &Path) -> anyhow::Result<Self> {
+        let report = fs::read_to_string(path)?;
+        serde_json::from_str::<Report>(&report)
+            .map_err(|e| anyhow::Error::msg(format!("failed to parse the report: {e}")))
+    }
+
+    /// Get package directory.
+    pub fn get_package_dir(&self) -> &Path {
+        &self.package_dir
     }
 
     /// Prints the report to stdout in a table format.
@@ -129,7 +203,6 @@ impl Report {
     }
 
     /// Returns the list of entries in the report.
-    #[cfg(test)]
     pub fn entries(&self) -> &BTreeMap<PathBuf, Vec<MutantStats>> {
         &self.files
     }
@@ -137,7 +210,7 @@ impl Report {
 
 /// This struct represents an entry in the report.
 /// It contains the number of mutants tested and killed.
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct MutantStats {
     /// Module::function where mutant resides.
     pub module_func: String,
@@ -145,8 +218,10 @@ pub struct MutantStats {
     pub tested: u32,
     /// The number of mutants killed.
     pub killed: u32,
-    /// The list of not killed mutants.
+    /// The list of survived mutants.
     pub mutants_alive_diffs: Vec<String>,
+    /// The list of killed mutants.
+    pub mutants_killed_diff: Vec<String>,
 }
 
 impl MutantStats {
@@ -154,10 +229,18 @@ impl MutantStats {
     pub fn new(module_func: &str) -> Self {
         Self {
             module_func: module_func.to_string(),
-            tested: 0,
-            killed: 0,
-            mutants_alive_diffs: vec![],
+            ..Default::default()
         }
+    }
+
+    /// Get the name of the module where the mutation resides.
+    pub fn get_module_name(&self) -> String {
+        // Unfallable.
+        self.module_func
+            .split("::")
+            .next()
+            .expect("module name not found")
+            .to_owned()
     }
 }
 
@@ -168,13 +251,13 @@ mod tests {
 
     #[test]
     fn report_starts_empty() {
-        let report = Report::new();
+        let report = Report::new("package_dir".into());
         assert_eq!(report.entries().len(), 0);
     }
 
     #[test]
     fn increment_mutants_tested_adds_new_module_if_not_present() {
-        let mut report = Report::new();
+        let mut report = Report::new("package_dir".into());
         let path = PathBuf::from("path/to/file");
         let module_name = "new_module";
         report.increment_mutants_tested(&path, module_name);
@@ -184,7 +267,7 @@ mod tests {
 
     #[test]
     fn increment_mutants_killed_adds_new_module_if_not_present() {
-        let mut report = Report::new();
+        let mut report = Report::new("package_dir".into());
         let path = PathBuf::from("path/to/file");
         let module_name = "new_module";
         report.increment_mutants_killed(&path, module_name);
@@ -194,7 +277,7 @@ mod tests {
 
     #[test]
     fn increment_mutants_tested_increases_tested_count_for_existing_module() {
-        let mut report = Report::new();
+        let mut report = Report::new("package_dir".into());
         let path = PathBuf::from("path/to/file");
         let module_name = "existing_module";
         report.increment_mutants_tested(&path, module_name);
@@ -207,7 +290,7 @@ mod tests {
 
     #[test]
     fn increment_mutants_killed_increases_killed_count_for_existing_module() {
-        let mut report = Report::new();
+        let mut report = Report::new("package_dir".into());
         let path = PathBuf::from("path/to/file");
         let module_name = "existing_module";
         report.increment_mutants_killed(&path, module_name);
@@ -220,7 +303,7 @@ mod tests {
 
     #[test]
     fn mutants_tested_returns_correct_total_tested_count() {
-        let mut report = Report::new();
+        let mut report = Report::new("package_dir".into());
         let path1 = PathBuf::from("path/to/file1");
         let path2 = PathBuf::from("path/to/file2");
         let module_name = "module";
@@ -232,7 +315,7 @@ mod tests {
 
     #[test]
     fn mutants_killed_returns_correct_total_killed_count() {
-        let mut report = Report::new();
+        let mut report = Report::new("package_dir".into());
         let path1 = PathBuf::from("path/to/file1");
         let path2 = PathBuf::from("path/to/file2");
         let module_name = "module";
@@ -244,7 +327,7 @@ mod tests {
 
     #[test]
     fn add_mutants_alive_diff_adds_new_module_if_not_present() {
-        let mut report = Report::new();
+        let mut report = Report::new("package_dir".into());
         let path = PathBuf::from("path/to/file");
         let module_name = "new_module";
         let diff = "diff";
@@ -258,7 +341,7 @@ mod tests {
 
     #[test]
     fn add_mutants_alive_diff_adds_diff_to_existing_module() {
-        let mut report = Report::new();
+        let mut report = Report::new("package_dir".into());
         let path = PathBuf::from("path/to/file");
         let module_name = "existing_module";
         let diff1 = "diff1";

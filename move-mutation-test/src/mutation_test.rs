@@ -47,8 +47,6 @@ pub(crate) fn run_tests<W: WriteColor + Send>(
     let natives = aptos_debug_natives(NativeGasParameters::zeros(), MiscGasParameters::zeros());
     let cost_table = None;
     let gas_limit = None; // unlimited.
-                          // TODO(M2): Add special handling for the coverage computation.
-    let compute_coverage = false;
 
     let result = move_cli::base::test::run_move_unit_tests(
         package_path,
@@ -75,7 +73,7 @@ pub(crate) fn run_tests<W: WriteColor + Send>(
         aptos_test_feature_flags_genesis(),
         gas_limit,
         cost_table,
-        compute_coverage,
+        cfg.apply_coverage,
         &mut error_writer,
     )
     .map_err(|err| Error::msg(format!("failed to run unit tests: {err:#}")))?;

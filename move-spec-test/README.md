@@ -88,7 +88,7 @@ The sample report generated for the above test will look as follows:
   "files": {
     "sources/Sum.move": [
       {
-        "module": "Sum",
+        "module_func": "Sum::sum",
         "tested": 4,
         "killed": 0,
         "mutants_alive_diffs": [
@@ -96,10 +96,12 @@ The sample report generated for the above test will look as follows:
           "--- original\n+++ modified\n@@ -1,6 +1,6 @@\n module TestAccount::Sum {\n     fun sum(x: u128, y: u128): u128 {\n-        let sum_r = x + y;\n+        let sum_r = x * y;\n\n         spec {\n                 // Senseless specification - mutator will change + operator to -*/ but spec won't notice it.\n",
           "--- original\n+++ modified\n@@ -1,6 +1,6 @@\n module TestAccount::Sum {\n     fun sum(x: u128, y: u128): u128 {\n-        let sum_r = x + y;\n+        let sum_r = x / y;\n\n         spec {\n                 // Senseless specification - mutator will change + operator to -*/ but spec won't notice it.\n",
           "--- original\n+++ modified\n@@ -1,6 +1,6 @@\n module TestAccount::Sum {\n     fun sum(x: u128, y: u128): u128 {\n-        let sum_r = x + y;\n+        let sum_r = x % y;\n\n         spec {\n                 // Senseless specification - mutator will change + operator to -*/ but spec won't notice it.\n"
-        ]
+        ],
+        "mutants_killed_diff": []
       }
     ]
-  }
+  },
+  "package_dir": "/home/user/move-spec-testing/move-mutator/tests/move-assets/simple"
 }
 ```
 
@@ -134,68 +136,6 @@ and modified code. This can help improve the specifications to make them
 more tight and correct, or it may indicate that some specifications of
 mutation operators do not apply well to that kind of code.
 
-## Command-line options
-
-To check possible options run:
-```bash
-./target/release/move-spec-test --help
-Package and build system for Move code
-
-Usage: move-spec-test [OPTIONS]
-
-Options:
-  -p, --package-path <PACKAGE_PATH>
-          The path where to put the output files
-  -m, --move-sources <MOVE_SOURCES>
-          The paths to the Move sources
-  -i, --include-modules <INCLUDE_MODULES>
-          Work only over specified modules [default: all]
-      --mutator-conf <MUTATOR_CONF>
-          Optional configuration file for mutator tool
-      --prover-conf <PROVER_CONF>
-          Optional configuration file for prover tool
-  -o, --output <OUTPUT>
-          Save report to a JSON file
-  -u, --use-generated-mutants <USE_GENERATED_MUTANTS>
-          Use previously generated mutants
-      --verify-mutants
-          Indicates if mutants should be verified and made sure mutants can compile
-      --extra-prover-args <EXTRA_PROVER_ARGS>
-          Extra arguments to pass to the prover
-  -d, --dev
-          Compile in 'dev' mode. The 'dev-addresses' and 'dev-dependencies' fields will be used if this flag is set. This flag is useful for development of packages that expose named addresses that are not set to a specific value
-      --test
-          Compile in 'test' mode. The 'dev-addresses' and 'dev-dependencies' fields will be used along with any code in the 'tests' directory
-      --override-std <OVERRIDE_STD>
-          Whether to override the standard library with the given version [possible values: mainnet, testnet, devnet]
-      --doc
-          Generate documentation for packages
-      --abi
-          Generate ABIs for packages
-      --install-dir <INSTALL_DIR>
-          Installation directory for compiled artifacts. Defaults to current directory
-      --force
-          Force recompilation of all packages
-      --arch <ARCHITECTURE>
-
-      --fetch-deps-only
-          Only fetch dependency repos to MOVE_HOME
-      --skip-fetch-latest-git-deps
-          Skip fetching latest git dependencies
-      --bytecode-version <BYTECODE_VERSION>
-          Bytecode version to compile move code
-      --skip-attribute-checks
-          Do not complain about an unknown attribute in Move code
-      --compiler-version <COMPILER_VERSION>
-          Compiler version to use
-      --language-version <LANGUAGE_VERSION>
-          Language version to support
-      --experiments <EXPERIMENTS>
-          Experiments for v2 compiler to set to true
-  -h, --help
-          Print help
-  -V, --version
-          Print version
-```
+To check possible options, use the `--help` option with any command/subcommand.
 
 [aptos-core]: https://github.com/aptos-labs/aptos-core/

@@ -27,7 +27,6 @@ If the mutants are not killed, it might indicate the quality of the test suite c
 
 <summary>Prerequisites</summary>
 
-
  _Move Prover_ depends on a tool called [boogie](https://github.com/boogie-org/boogie), which requires a `.net 6` runtime and an SMT solver, the default being [Z3](https://github.com/Z3Prover/z3).
 
  Specific versions of these need to be installed, and the paths to the boogie and `z3` executables set in two environment variables:
@@ -127,7 +126,7 @@ The sample report generated for the above command will look as follows:
   "files": {
     "sources/Sum.move": [
       {
-        "module": "Sum",
+        "module_func": "Sum::sum",
         "tested": 4,
         "killed": 0,
         "mutants_alive_diffs": [
@@ -135,23 +134,20 @@ The sample report generated for the above command will look as follows:
           "--- original\n+++ modified\n@@ -1,6 +1,6 @@\n module TestAccount::Sum {\n     fun sum(x: u128, y: u128): u128 {\n-        let sum_r = x + y;\n+        let sum_r = x * y;\n\n         spec {\n                 // Senseless specification - mutator will change + operator to -*/ but spec won't notice it.\n",
           "--- original\n+++ modified\n@@ -1,6 +1,6 @@\n module TestAccount::Sum {\n     fun sum(x: u128, y: u128): u128 {\n-        let sum_r = x + y;\n+        let sum_r = x / y;\n\n         spec {\n                 // Senseless specification - mutator will change + operator to -*/ but spec won't notice it.\n",
           "--- original\n+++ modified\n@@ -1,6 +1,6 @@\n module TestAccount::Sum {\n     fun sum(x: u128, y: u128): u128 {\n-        let sum_r = x + y;\n+        let sum_r = x % y;\n\n         spec {\n                 // Senseless specification - mutator will change + operator to -*/ but spec won't notice it.\n"
-        ]
+        ],
+        "mutants_killed_diff": []
       }
     ]
-  }
+  },
+  "package_dir": "/home/user/move-spec-testing/move-mutator/tests/move-assets/simple"
 }
-```
-
-To check possible options, run:
-```bash
-$ move-spec-test --help
 ```
 
 #### Move Mutation Tester
 
 To start mutation test, run the following command from the repo directory:
 ```bash
-$ move-mutation-test --package-dir move-mutator/tests/move-assets/simple -o report.txt
+$ move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt
 ```
 A shortened sample output for the above command will look as follows:
 ```text
@@ -175,31 +171,43 @@ Total mutants killed: 203
 ╰────────────────────────────────────────────────┴────────────────┴────────────────┴────────────╯
 ```
 
-The sample `report.txt` generated for the above command will look as follows:
-```json
-{
-  "files": {
-    "sources/Operators.move": [
-      {
-        "module_func": "Operators::and",
-        "tested": 3,
-        "killed": 2,
-        "mutants_alive_diffs": [
-          "--- original\n+++ modified\n@@ -108,7 +108,7 @@\n     }\n\n     fun and(x: u64, y: u64): u64 {\n-        x & y\n+        y&x\n     }\n\n     // Info: we won't kill a mutant that swaps places (false-positive)\n"
-        ]
-      },
-      {
-        "module_func": "Operators::div",
-        "tested": 5,
-        "killed": 5,
-        "mutants_alive_diffs": []
-      },
-      [...]
-```
-
-To explore other tool options, run:
+The sample `report.txt` generated for the above command contains useful info that can be paired with the `display-report` option:
 ```bash
-$ move-mutation-test --help
+$ move-mutation-test display-report -p report.txt --modules Sum
+The legend is shown below in the table format
+===================================┬==================================
+ mutants killed / mutants in total │ Source code file path
+===================================┼==================================
+                  <examples below> │ <Line>
+                                   │
+                                   │ Line without any mutants
+                               6/8 │ Some mutants killed on this line
+                                   │ Another line without any mutants
+                             10/10 │ All mutants killed on this line
+                               0/4 │ No mutants killed on this line
+                                   │ One final line without mutants
+
+=====┬=======================================
+     │ sources/Sum.move
+=====┼=======================================
+     │ module TestAccount::Sum {
+     │     fun sum(x: u128, y: u128): u128 {
+ 4/4 │         let sum_r = x * y;
+     │         spec {
+     │                 assert sum_r == x+y;
+     │         };
+     │
+     │         sum_r
+     │     }
+     │
+     │     #[test]
+     │     fun sum_test() {
+     │          assert!(sum(2, 2) == 4, 0);
+     │          assert!(sum(0, 5) == 5, 0);
+     │          assert!(sum(100, 0) == 100, 0);
+     │          assert!(sum(0, 0) == 0, 0);
+     │     }
+     │ }
 ```
 
 #### Move Mutator
@@ -211,10 +219,6 @@ To generate mutants for all files within a test project (for the whole Move pack
 $ move-mutator -p move-mutator/tests/move-assets/simple/
 ```
 By default, the output shall be stored in the `mutants_output` directory unless otherwise specified.
-To check possible options, run:
-```bash
-$ move-mutator --help
-```
 
 ## License
 

@@ -5,6 +5,7 @@ members = [
     "move-mutation-test",
     "move-mutator",
     "move-spec-test",
+    "mutator-common",
 ]
 
 # All workspace members should inherit these keys
@@ -37,6 +38,7 @@ move-cli = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "mai
 move-command-line-common = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
 move-compiler = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
 move-compiler-v2 = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
+move-coverage = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
 move-model = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
 move-mutator = { path = "move-mutator" }
 move-package = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
@@ -44,8 +46,11 @@ move-prover = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "
 move-symbol-pool = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
 move-unit-test = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
 move-vm-runtime = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
+mutator-common = { path = "mutator-common" }
+num = "0.4"
 num-traits = "0.2"
 pretty_env_logger = "0.5"
+prettytable-rs = "0.10"
 rand = "0.8"
 rayon = "1.10"
 serde = { version = "1.0", features = ["derive"] }

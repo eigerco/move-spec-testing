@@ -5,6 +5,7 @@
 #![forbid(unsafe_code)]
 
 use clap::Parser;
+use move_mutator::cli::PackagePathCheck;
 use move_package::BuildConfig;
 use move_spec_test::{cli::CLIOptions, run_spec_test};
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,8 @@ pub struct Opts {
 
 fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
-    let package_path = opts.package_path.unwrap_or(PathBuf::from("."));
+
+    let package_path = opts.cli_options.resolve(opts.package_path)?;
 
     run_spec_test(&opts.cli_options, &opts.build_config, &package_path)
 }

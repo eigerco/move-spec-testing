@@ -8,7 +8,11 @@ use crate::{
     report::{Mutation, Range},
 };
 use codespan::FileId;
-use move_model::{ast::Operation, model::Loc};
+use move_model::{
+    ast::{ExpData, Operation, Value},
+    model::Loc,
+};
+use num::Zero;
 use std::fmt;
 
 pub const OPERATOR_NAME: &str = "binary_operator_replacement";
@@ -85,8 +89,33 @@ impl MutationOperator for Binary {
             },
         };
 
+        let is_left_exp_zero = contains_value_zero(self.exps[0].exp.as_ref());
+        let is_right_exp_zero = contains_value_zero(self.exps[1].exp.as_ref());
+
         ops.into_iter()
             .filter(|v| cur_op != *v)
+            .filter(|v| match cur_op {
+                // All below mutants would lead to the same code logic and would become
+                // false-positive results.
+
+                // x == 0 should never mutate to x <= 0
+                "==" if is_right_exp_zero && *v == "<=" => false,
+                // 0 == x should never mutate to 0 >= x
+                "==" if is_left_exp_zero && *v == ">=" => false,
+                // Do not check the reverse: x <= 0 or 0 >= 0 since such code indicates logic error.
+
+                // x != 0 should never mutate to x > 0
+                "!=" if is_right_exp_zero && *v == ">" => false,
+                // 0 != x should never mutate to 0 < x
+                "!=" if is_left_exp_zero && *v == "<" => false,
+
+                // x > 0 should never mutate to x != 0
+                ">" if is_right_exp_zero && *v == "!=" => false,
+                // 0 < x should never mutate to 0 != x
+                "<" if is_left_exp_zero && *v == "!=" => false,
+
+                _ => true,
+            })
             .map(|op| {
                 let mut mutated_source = source.to_string();
                 mutated_source.replace_range(start..end, op);
@@ -110,6 +139,13 @@ impl MutationOperator for Binary {
     fn name(&self) -> String {
         OPERATOR_NAME.to_string()
     }
+}
+
+fn contains_value_zero(exp: &ExpData) -> bool {
+    if let ExpData::Value(_id, Value::Number(num)) = exp {
+        return num.is_zero();
+    }
+    false
 }
 
 impl fmt::Display for Binary {

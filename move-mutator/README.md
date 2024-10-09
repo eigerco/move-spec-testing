@@ -89,40 +89,4 @@ prove.
 There are several test projects under `move-mutator/tests/move-assets/`
 directory. They can be used to check the mutator tool as well.
 
-## Command-line options
-
-To check possible options run:
-```bash
-./target/release/move-mutator --help
-
-Package and build system for Move code
-
-Usage: move-mutator [OPTIONS]
-
-Options:
-  -p, --package-path <PACKAGE_PATH>                                    The path to the target Move package
-  -m, --move-sources <MOVE_SOURCES>                                    The paths to the Move sources
-      --mutate-modules <MUTATE_MODULES>                                Module names to be mutated [default: all]
-  -f, --mutate-functions <MUTATE_FUNCTIONS>                            Function names to be mutated [default: all]
-  -o, --out-mutant-dir <OUT_MUTANT_DIR>                                The path where to put the output files
-      --verify-mutants                                                 Indicates if mutants should be verified and made sure mutants can compile
-  -n, --no-overwrite                                                   Indicates if the output files should be overwritten
-      --downsampling-ratio-percentage <DOWNSAMPLING_RATIO_PERCENTAGE>  Remove averagely given percentage of mutants. See the doc for more details
-  -c, --configuration-file <CONFIGURATION_FILE>                        Optional configuration file. If provided, it will override the default configuration
-  -d, --dev                                                            Compile in 'dev' mode. The 'dev-addresses' and 'dev-dependencies' fields will be used if this flag is set. This flag is useful for development of packages that expose named addresses that are not set to a specific value
-      --test                                                           Compile in 'test' mode. The 'dev-addresses' and 'dev-dependencies' fields will be used along with any code in the 'tests' directory
-      --override-std <OVERRIDE_STD>                                    Whether to override the standard library with the given version [possible values: mainnet, testnet, devnet]
-      --doc                                                            Generate documentation for packages
-      --abi                                                            Generate ABIs for packages
-      --install-dir <INSTALL_DIR>                                      Installation directory for compiled artifacts. Defaults to current directory
-      --force                                                          Force recompilation of all packages
-      --arch <ARCHITECTURE>
-      --fetch-deps-only                                                Only fetch dependency repos to MOVE_HOME
-      --skip-fetch-latest-git-deps                                     Skip fetching latest git dependencies
-      --bytecode-version <BYTECODE_VERSION>                            Bytecode version to compile move code
-      --skip-attribute-checks                                          Do not complain about an unknown attribute in Move code
-      --compiler-version <COMPILER_VERSION>                            Compiler version to use
-      --language-version <LANGUAGE_VERSION>                            Language version to support
-      --experiments <EXPERIMENTS>                                      Experiments for v2 compiler to set to true
-  -h, --help                                                           Print help
-  -V, --version                                                        Print version```
+To check possible options, use the `--help` option.

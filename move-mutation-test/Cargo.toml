@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Move mutation unit testing tool"
 authors.workspace = true
 edition.workspace = true
+homepage.workspace = true
 license.workspace = true
 publish.workspace = true
 repository.workspace = true
@@ -30,10 +31,9 @@ move-mutator = { workspace = true }
 move-package = { workspace = true }
 move-unit-test = { workspace = true }
 move-vm-runtime = { workspace = true }
+mutator-common = { workspace = true }
 pretty_env_logger = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-tabled = { workspace = true }
 tempfile = { workspace = true }
 termcolor = { workspace = true }

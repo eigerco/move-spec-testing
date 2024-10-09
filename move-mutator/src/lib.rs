@@ -12,6 +12,7 @@ pub mod compiler;
 mod mutate;
 
 pub mod configuration;
+pub(crate) mod coverage;
 mod mutant;
 mod operator;
 mod operators;
@@ -60,24 +61,27 @@ pub fn run_move_mutator(
     );
 
     // Load configuration from file or create a new one.
-    let mutator_configuration = match options.configuration_file {
+    let mut mutator_configuration = match options.configuration_file {
         Some(path) => Configuration::from_file(path.as_path())?,
         None => Configuration::new(options, Some(package_path.to_owned())),
     };
 
     trace!("Mutator configuration: {mutator_configuration:?}");
 
-    let env = generate_ast(
-        &mutator_configuration,
-        config,
-        mutator_configuration
-            .project_path
-            .as_ref()
-            .unwrap_or(&package_path.to_owned())
-            .as_path(),
-    )?;
+    let package_path = mutator_configuration
+        .project_path
+        .clone()
+        .unwrap_or(package_path.to_owned());
+    let env = generate_ast(&mutator_configuration, config, &package_path)?;
 
-    trace!("Generated AST");
+    info!("Generated AST");
+
+    if mutator_configuration.project.apply_coverage {
+        // This implies additional compilation inside.
+        mutator_configuration
+            .coverage
+            .compute_coverage(config, &package_path)?;
+    }
 
     let mutants = mutate::mutate(&env, &mutator_configuration)?;
     let output_dir = output::setup_output_dir(&mutator_configuration)?;

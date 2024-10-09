@@ -5,7 +5,6 @@
 mod benchmark;
 pub mod cli;
 mod mutation_test;
-mod report;
 
 extern crate pretty_env_logger;
 #[macro_use]
@@ -14,11 +13,11 @@ extern crate log;
 use crate::{
     benchmark::{Benchmark, Benchmarks},
     mutation_test::run_tests,
-    report::{MiniReport, MutantStatus},
 };
 use anyhow::anyhow;
 use cli::TestBuildConfig;
 use move_package::{source_package::layout::SourcePackageLayout, BuildConfig};
+use mutator_common::report::{MiniReport, MutantStatus, Report};
 use rayon::prelude::*;
 use std::{
     fs,
@@ -73,6 +72,8 @@ pub fn run_mutation_test(
     // We need to check for the latest git deps only for the first time we run the test.
     // All subsequent runs with this tool will then have the latest deps fetched.
     let skip_fetch_deps = false;
+    // TODO: use this one instead once it is available in the aptos-core.
+    //let skip_fetch_deps = test_config.move_pkg.skip_fetch_latest_git_deps; // false by default
     let result = run_tests(
         test_config,
         &package_path,
@@ -107,7 +108,13 @@ pub fn run_mutation_test(
             compiler_config: test_config.compiler_config(),
             ..Default::default()
         };
-        let outdir_mutant = run_mutator(options, &mutator_config, &package_path, &outdir)?;
+        let outdir_mutant = run_mutator(
+            options,
+            test_config.apply_coverage,
+            &mutator_config,
+            &package_path,
+            &outdir,
+        )?;
         benchmarks.mutator.stop();
         outdir_mutant
     };
@@ -116,6 +123,9 @@ pub fn run_mutation_test(
         move_mutator::report::Report::load_from_json_file(&outdir_mutant.join("report.json"))?;
 
     // Run tests on mutants:
+
+    // Do not calculate the coverage on mutants.
+    let test_config = test_config.disable_coverage();
 
     benchmarks.mutation_test.start();
     let (mutation_test_benchmarks, mini_reports): (Vec<Benchmark>, Vec<MiniReport>) = report
@@ -165,7 +175,7 @@ pub fn run_mutation_test(
             let skip_fetch_deps = true;
             // No need to print anything to the screen, due to many threads, it might be messy and slow.
             let mut error_writer = std::io::sink();
-            let result = run_tests(test_config, &outdir, skip_fetch_deps, &mut error_writer);
+            let result = run_tests(&test_config, &outdir, skip_fetch_deps, &mut error_writer);
             benchmark.stop();
 
             let mutant_status = if let Err(e) = result {
@@ -173,8 +183,10 @@ pub fn run_mutation_test(
                 MutantStatus::Killed
             } else {
                 trace!("Mutant {} hasn't been killed!", mutant_file.display());
-                MutantStatus::Alive(elem.get_diff().to_owned())
+                MutantStatus::Alive
             };
+
+            let diff = elem.get_diff().to_owned();
 
             // Qualified name for the function.
             let mut qname = elem.get_module_name().to_owned();
@@ -183,7 +195,7 @@ pub fn run_mutation_test(
 
             (
                 benchmark,
-                MiniReport::new(original_file.to_path_buf(), qname, mutant_status),
+                MiniReport::new(original_file.to_path_buf(), qname, mutant_status, diff),
             )
         })
         .collect::<Vec<(_, _)>>()
@@ -194,18 +206,20 @@ pub fn run_mutation_test(
     benchmarks.mutation_test_results = mutation_test_benchmarks;
 
     // Prepare a report.
-    let mut test_report = report::Report::new();
+    let mut test_report = Report::new(package_path.to_owned());
     for MiniReport {
         original_file,
         qname,
         mutant_status,
+        diff,
     } in mini_reports
     {
         test_report.increment_mutants_tested(&original_file, &qname);
-        if let MutantStatus::Alive(file_diff) = mutant_status {
-            test_report.add_mutants_alive_diff(&original_file, &qname, &file_diff);
+        if let MutantStatus::Alive = mutant_status {
+            test_report.add_mutants_alive_diff(&original_file, &qname, &diff);
         } else {
             test_report.increment_mutants_killed(&original_file, &qname);
+            test_report.add_mutants_killed_diff(&original_file, &qname, &diff);
         }
     }
 
@@ -225,12 +239,13 @@ pub fn run_mutation_test(
 /// This function runs the Move Mutator tool.
 fn run_mutator(
     options: &cli::CLIOptions,
+    apply_coverage: bool,
     config: &BuildConfig,
     package_path: &Path,
     outdir: &Path,
 ) -> anyhow::Result<PathBuf> {
     debug!("Running the move mutator tool");
-    let mut mutator_conf = cli::create_mutator_options(options);
+    let mut mutator_conf = cli::create_mutator_options(options, apply_coverage);
 
     let outdir_mutant = if let Some(path) = cli::check_mutator_output_path(&mutator_conf) {
         path

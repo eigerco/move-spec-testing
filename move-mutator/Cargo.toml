@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Move mutation tool"
 authors.workspace = true
 edition.workspace = true
+homepage.workspace = true
 license.workspace = true
 publish.workspace = true
 repository.workspace = true
@@ -26,9 +27,11 @@ log = { workspace = true }
 move-command-line-common = { workspace = true }
 move-compiler = { workspace = true }
 move-compiler-v2 = { workspace = true }
+move-coverage = { workspace = true }
 move-model = { workspace = true }
 move-package = { workspace = true }
 move-symbol-pool = { workspace = true }
+num = { workspace = true }
 num-traits = { workspace = true }
 pretty_env_logger = { workspace = true }
 rand = { workspace = true }

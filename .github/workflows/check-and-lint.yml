@@ -2,9 +2,9 @@ name: Basic check and lint
 
 on:
   push:
-    branches: [ main, develop-m1 ]
+    branches: [ main, develop-m1, develop-m2 ]
   pull_request:
-    branches: [ main, develop-m1 ]
+    branches: [ main, develop-m1, develop-m2 ]
 
 env:
   CARGO_TERM_COLOR: always

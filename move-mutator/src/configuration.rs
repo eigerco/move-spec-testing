@@ -2,7 +2,7 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::cli::CLIOptions;
+use crate::{cli::CLIOptions, coverage::Coverage};
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
@@ -15,9 +15,8 @@ pub enum FileType {
     JSON,
     TOML,
 }
-
 /// Mutator configuration for the Move project.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Configuration {
     /// Main project options. It's the same as the CLI options.
     pub project: CLIOptions,
@@ -27,6 +26,9 @@ pub struct Configuration {
     pub mutation: Option<MutationConfig>,
     /// Configuration for the individual files. (optional).
     pub individual: Vec<FileConfiguration>,
+    /// Coverage report where the optional unit test coverage data is stored.
+    #[serde(skip)]
+    pub(crate) coverage: Coverage,
 }
 
 impl Configuration {
@@ -38,6 +40,8 @@ impl Configuration {
             project_path,
             mutation: None,
             individual: vec![],
+            // Coverage is disabled by default.
+            coverage: Coverage::default(),
         }
     }
 
@@ -326,10 +330,8 @@ mod tests {
             mutate_functions: FunctionFilter::All,
         };
         let config = Configuration {
-            project: CLIOptions::default(),
-            project_path: None,
-            mutation: None,
             individual: vec![file_config],
+            ..Default::default()
         };
 
         let result = config.get_file_configuration(&PathBuf::from("/unknown/path"));

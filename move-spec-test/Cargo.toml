@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Move specification testing tool"
 authors.workspace = true
 edition.workspace = true
+homepage.workspace = true
 license.workspace = true
 publish.workspace = true
 repository.workspace = true
@@ -21,9 +22,8 @@ move-model = { workspace = true }
 move-mutator = { workspace = true }
 move-package = { workspace = true }
 move-prover = { workspace = true }
+mutator-common = { workspace = true }
 pretty_env_logger = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-tabled = { workspace = true }
 tempfile = { workspace = true }
 termcolor = { workspace = true }

@@ -38,11 +38,15 @@ pub struct CLIOptions {
 
 /// This function creates a mutator CLI options from the given mutation-test options.
 #[must_use]
-pub fn create_mutator_options(options: &CLIOptions) -> move_mutator::cli::CLIOptions {
+pub fn create_mutator_options(
+    options: &CLIOptions,
+    apply_coverage: bool,
+) -> move_mutator::cli::CLIOptions {
     move_mutator::cli::CLIOptions {
         mutate_functions: options.mutate_functions.clone(),
         mutate_modules: options.mutate_modules.clone(),
         configuration_file: options.mutator_conf.clone(),
+        apply_coverage,
         // To run tests, compilation must succeed
         verify_mutants: true,
         ..Default::default()
@@ -64,7 +68,7 @@ pub fn check_mutator_output_path(options: &move_mutator::cli::CLIOptions) -> Opt
 
 /// The configuration options for running the tests.
 // Info: this set struct is based on TestPackage in `aptos-core/crates/aptos/src/move_tool/mod.rs`.
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 pub struct TestBuildConfig {
     /// Options for compiling a move package dir.
     // We might move some options out and have our own option struct here - not all options are
@@ -83,15 +87,14 @@ pub struct TestBuildConfig {
     /// A boolean value to skip warnings.
     #[clap(long)]
     pub ignore_compile_warnings: bool,
-    // TODO: There is no sense in enabling coverage - we'll have another option in the future
-    // 'use-coverage-data' or something like that - that is going to be passed to the mutator
-    // tool
-    ///// Collect coverage information for later use with the various `aptos move coverage` subcommands
-    //#[clap(long = "coverage")]
-    //pub compute_coverage: bool,
+
+    /// Compute and then use unit test computed coverage to generate mutants only for covered code.
+    #[clap(long = "coverage")]
+    pub apply_coverage: bool,
 }
 
 impl TestBuildConfig {
+    /// Create a [`CompilerConfig`] from the [`TestBuildConfig`].
     pub fn compiler_config(&self) -> CompilerConfig {
         let known_attributes = extended_checks::get_all_attribute_names().clone();
         CompilerConfig {
@@ -105,6 +108,13 @@ impl TestBuildConfig {
             language_version: self.move_pkg.language_version,
             experiments: experiments_from_opt_level(&self.move_pkg.optimize),
         }
+    }
+
+    /// Returns [`TestBuildConfig`] with the coverage option disabled.
+    pub fn disable_coverage(&self) -> Self {
+        let mut cfg = self.clone();
+        cfg.apply_coverage = false;
+        cfg
     }
 }
 
@@ -141,7 +151,9 @@ mod tests {
             mutator_conf: Some(PathBuf::from("path/to/mutator/conf")),
             ..Default::default()
         };
-        let mutator_options = create_mutator_options(&options);
+
+        let no_apply_coverage = false;
+        let mutator_options = create_mutator_options(&options, no_apply_coverage);
 
         assert_eq!(mutator_options.mutate_modules, options.mutate_modules);
         assert_eq!(mutator_options.configuration_file, options.mutator_conf);

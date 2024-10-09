@@ -168,6 +168,18 @@ impl Mutation {
         }
     }
 
+    /// Returns the original value.
+    #[must_use]
+    pub fn get_original_value(&self) -> &str {
+        &self.old_value
+    }
+
+    /// Returns the new value.
+    #[must_use]
+    pub fn get_new_value(&self) -> &str {
+        &self.new_value
+    }
+
     /// Returns the operator name.
     #[must_use]
     pub fn get_operator_name(&self) -> &str {

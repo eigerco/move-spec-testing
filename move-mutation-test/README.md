@@ -40,7 +40,7 @@ cargo test -p move-mutation-test
 
 To start the mutation test, run the following command from the repo directory:
 ```bash
-./target/release/move-mutation-test --package-dir move-mutator/tests/move-assets/simple -o report.txt
+./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt
 ```
 The above command will store the report in a file `report.txt`.
 A shortened sample output for the above command will look as follows:
@@ -67,6 +67,45 @@ Total mutants killed: 203
 ╰────────────────────────────────────────────────┴────────────────┴────────────────┴────────────╯
 ```
 
+The sample `report.txt` generated for the above command contains useful info that can be paired with the `display-report` option:
+```bash
+$ move-mutation-test display-report -p report.txt --modules Sum
+The legend is shown below in the table format
+===================================┬==================================
+ mutants killed / mutants in total │ Source code file path
+===================================┼==================================
+                  <examples below> │ <Line>
+                                   │
+                                   │ Line without any mutants
+                               6/8 │ Some mutants killed on this line
+                                   │ Another line without any mutants
+                             10/10 │ All mutants killed on this line
+                               0/4 │ No mutants killed on this line
+                                   │ One final line without mutants
+
+=====┬=======================================
+     │ sources/Sum.move
+=====┼=======================================
+     │ module TestAccount::Sum {
+     │     fun sum(x: u128, y: u128): u128 {
+ 4/4 │         let sum_r = x * y;
+     │         spec {
+     │                 assert sum_r == x+y;
+     │         };
+     │
+     │         sum_r
+     │     }
+     │
+     │     #[test]
+     │     fun sum_test() {
+     │          assert!(sum(2, 2) == 4, 0);
+     │          assert!(sum(0, 5) == 5, 0);
+     │          assert!(sum(100, 0) == 100, 0);
+     │          assert!(sum(0, 0) == 0, 0);
+     │     }
+     │ }
+```
+
 You should see different results for different modules as it depends on the
 quality of the source code and the test suites. Some modules, like `Sum`, have good
 tests and all mutants are killed, while some others, like `Operators`
@@ -77,78 +116,16 @@ which mutants are not killed, and what the differences are between the original
 and modified code. This can help improve the test suite, or it may indicate
 an error in the original source code.
 
-The sample `report.txt` generated for the above command will look as follows:
-```json
-{
-  "files": {
-    "sources/Operators.move": [
-      {
-        "module_func": "Operators::and",
-        "tested": 3,
-        "killed": 2,
-        "mutants_alive_diffs": [
-          "--- original\n+++ modified\n@@ -108,7 +108,7 @@\n     }\n\n     fun and(x: u64, y: u64): u64 {\n-        x & y\n+        y&x\n     }\n\n     // Info: we won't kill a mutant that swaps places (false-positive)\n"
-        ]
-      },
-      {
-        "module_func": "Operators::div",
-        "tested": 5,
-        "killed": 5,
-        "mutants_alive_diffs": []
-      },
-      [...]
-```
-
 The tool respects `RUST_LOG` variable, and it will print out as much information as the variable allows.
 There is possibility to enable logging only for the specific modules.
 Please refer to the [env_logger](https://docs.rs/env_logger/latest/env_logger/) documentation for more details.
 
 You can try to run the tool using other examples from the `move-mutator` tests like:
 ```bash
-./target/release/move-mutation-test -p move-mutator/tests/move-assets/breakcontinue
+./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/breakcontinue
 ```
 
-## Command-line options
-
-To check possible options, run:
-```bash
-./target/release/move-mutation-test --help
-The configuration options for running the tests
-
-Usage: move-mutation-test [OPTIONS]
-
-Options:
-      --include-modules <INCLUDE_MODULES>              Work only over specified modules [default: all]
-      --mutator-conf <MUTATOR_CONF>                    Optional configuration file for mutator tool
-  -o, --output <OUTPUT>                                Save report to a JSON file
-  -u, --use-generated-mutants <USE_GENERATED_MUTANTS>  Use previously generated mutants
-      --package-dir <PACKAGE_DIR>                      Path to a move package (the folder with a Move.toml file).  Defaults to current directory
-      --output-dir <OUTPUT_DIR>                        Path to save the compiled move package
-      --named-addresses <NAMED_ADDRESSES>              Named addresses for the move binary [default: ]
-      --override-std <OVERRIDE_STD>                    Override the standard library version by mainnet/testnet/devnet [possible values: mainnet, testnet, devnet]
-      --skip-fetch-latest-git-deps                     Skip pulling the latest git dependencies
-      --skip-attribute-checks                          Do not complain about unknown attributes in Move code
-      --dev                                            Enables dev mode, which uses all dev-addresses and dev-dependencies
-      --check-test-code                                Do apply extended checks for Aptos (e.g. `#[view]` attribute) also on test code. NOTE: this behavior will become the default in the future. See <https://github.com/aptos-labs/aptos-core/issues/10335> [env: APTOS_CHECK_TEST_CODE=]
-      --optimize <OPTIMIZE>                            Select optimization level.  Choices are "none", "default", or "extra". Level "extra" may spend more time on expensive optimizations in the future. Level "none" does no optimizations, possibly leading to use of too many runtime resources. Level "default" is the recommended level, and the default if not
-                                                       provided
-      --bytecode-version <BYTECODE_VERSION>            ...or --bytecode BYTECODE_VERSION
-                                                       Specify the version of the bytecode the compiler is going to emit.
-                                                       Defaults to `6`, or `7` if language version 2 is selected
-                                                       (through `--move-2` or `--language_version=2`), .
-      --compiler-version <COMPILER_VERSION>            ...or --compiler COMPILER_VERSION
-                                                       Specify the version of the compiler.
-                                                       Defaults to `1`, or `2` if `--move-2` is selected.
-      --language-version <LANGUAGE_VERSION>            ...or --language LANGUAGE_VERSION
-                                                       Specify the language version to be supported.
-                                                       Currently, defaults to `1`, unless `--move-2` is selected.
-      --move-2                                         Select bytecode, language version, and compiler to support Move 2:
-                                                       Same as `--bytecode_version=7 --language_version=2.0 --compiler_version=2.0`
-      --dump                                           Dump storage state on failure
-  -f, --filter <FILTER>                                A filter string to determine which unit tests to run
-      --ignore-compile-warnings                        A boolean value to skip warnings
-  -h, --help                                           Print help (see more with '--help')
-```
+To check possible options, use the `--help` option with any command/subcommand.
 
 ### Examples
 
@@ -156,18 +133,21 @@ _In below examples, the `RUST_LOG` flag is used to provide a more informative ou
 
 To use the tool on only the `Operators` module for the project `simple`, run:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-modules Operators
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-modules Operators
+./target/release/move-mutation-test display-report -p report.txt --modules Operators
 ```
 ------------------------------------------------------------------------------------------------------------
 To use the tool only on functions called `sum` for the project `simple`, run:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-functions sum
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-functions sum
+./target/release/move-mutation-test display-report -p report.txt --modules Operators,Sum
 ```
 In the output for the above command, the tool will mutate both the `Operators::sum` and `Sum::sum` functions.
 
 If the user wants to mutate only the `sum` function in the `Sum` module, the user can use this command:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-functions sum --mutate-modules Sum
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-functions sum --mutate-modules Sum
+./target/release/move-mutation-test display-report -p report.txt --modules Sum
 ```
 
 [aptos-core]: https://github.com/aptos-labs/aptos-core/

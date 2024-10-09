@@ -5,7 +5,7 @@
 #![allow(clippy::too_long_first_doc_paragraph)]
 
 use clap::Parser;
-use move_mutator::cli::{FunctionFilter, ModuleFilter};
+use move_mutator::cli::{FunctionFilter, ModuleFilter, PackagePathCheck};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -48,6 +48,12 @@ pub struct CLIOptions {
     /// Extra arguments to pass to the prover.
     #[clap(long, value_parser)]
     pub extra_prover_args: Option<Vec<String>>,
+}
+
+impl<'a> PackagePathCheck<'a> for CLIOptions {
+    fn get_move_sources(&'a self) -> &'a Vec<PathBuf> {
+        &self.move_sources
+    }
 }
 
 /// This function creates a mutator CLI options from the given spec-test options.

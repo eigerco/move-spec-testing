@@ -30,7 +30,7 @@ pub struct CLIOptions {
     pub out_mutant_dir: Option<PathBuf>,
 
     /// Indicates if mutants should be verified and made sure mutants can compile.
-    #[clap(long, default_value = "false")]
+    #[clap(long, default_value = "false", conflicts_with = "move_sources")]
     pub verify_mutants: bool,
 
     /// Indicates if the output files should be overwritten.
@@ -46,8 +46,37 @@ pub struct CLIOptions {
     pub downsampling_ratio_percentage: Option<usize>,
 
     /// Optional configuration file. If provided, it will override the default configuration.
-    #[clap(long, short, value_parser)]
+    #[clap(long, short, value_parser, conflicts_with = "move_sources")]
     pub configuration_file: Option<PathBuf>,
+
+    /// Use the unit test coverage report to generate mutants for source code with unit test coverage.
+    #[clap(long = "coverage", conflicts_with = "move_sources")]
+    pub apply_coverage: bool,
+}
+
+/// Checker for conflicts with CLI arguments.
+pub trait PackagePathCheck<'a> {
+    /// Gets the paths to the Move sources.
+    fn get_move_sources(&'a self) -> &'a Vec<PathBuf>;
+
+    /// Returns package path after checking for conflicts.
+    fn resolve(&'a self, package_path: Option<PathBuf>) -> anyhow::Result<PathBuf> {
+        if let Some(path) = package_path {
+            if !self.get_move_sources().is_empty() {
+                anyhow::bail!("the '--move-sources <MOVE_SOURCES>' is not compatible with the '--package_path <PACKAGE_PATH>' argument");
+            }
+
+            return Ok(path);
+        }
+
+        Ok(PathBuf::from("."))
+    }
+}
+
+impl<'a> PackagePathCheck<'a> for CLIOptions {
+    fn get_move_sources(&'a self) -> &'a Vec<PathBuf> {
+        &self.move_sources
+    }
 }
 
 impl Default for CLIOptions {
@@ -62,6 +91,7 @@ impl Default for CLIOptions {
             out_mutant_dir: Some(PathBuf::from(DEFAULT_OUTPUT_DIR)),
             verify_mutants: false,
             no_overwrite: false,
+            apply_coverage: false,
             downsample_filter: None,
             downsampling_ratio_percentage: None,
             configuration_file: None,

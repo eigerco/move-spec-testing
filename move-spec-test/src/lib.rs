@@ -7,7 +7,6 @@
 mod benchmark;
 pub mod cli;
 mod prover;
-mod report;
 
 extern crate pretty_env_logger;
 #[macro_use]
@@ -19,6 +18,7 @@ use crate::{
 };
 use anyhow::anyhow;
 use move_package::{source_package::layout::SourcePackageLayout, BuildConfig};
+use mutator_common::report::Report;
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -103,7 +103,7 @@ pub fn run_spec_test(
     // Proving part.
     move_mutator::compiler::copy_dir_all(&package_path, &outdir_original)?;
 
-    let mut spec_report = report::Report::new();
+    let mut spec_report = Report::new(package_path.to_owned());
 
     let mut proving_benchmarks = vec![Benchmark::new(); report.get_mutants().len()];
     benchmarks.prover.start();
@@ -161,6 +161,7 @@ pub fn run_spec_test(
         if let Err(e) = result {
             trace!("Mutant killed! Prover failed with error: {e}");
             spec_report.increment_mutants_killed(original_file, qname.as_str());
+            spec_report.add_mutants_killed_diff(original_file, &qname, elem.get_diff());
         } else {
             trace!("Mutant hasn't been killed!");
             spec_report.add_mutants_alive_diff(original_file, qname.as_str(), elem.get_diff());

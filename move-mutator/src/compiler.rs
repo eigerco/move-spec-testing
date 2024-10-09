@@ -11,7 +11,7 @@ use move_compiler::{attr_derivation, shared::Flags};
 use move_compiler_v2::run_checker;
 use move_model::model::GlobalEnv;
 use move_package::{
-    compilation::compiled_package::make_source_and_deps_for_compiler,
+    compilation::compiled_package::{make_source_and_deps_for_compiler, CompiledPackage},
     resolution::resolution_graph::ResolvedTable,
     source_package::{layout::SourcePackageLayout, manifest_parser},
     BuildConfig,
@@ -321,18 +321,24 @@ pub fn verify_mutant(
         tempdir.path().join(relative_path)
     );
 
-    let mut compilation_msg = vec![];
-
     // Create a working config, making sure that the test mode is disabled.
     // We want just check if the compilation is successful.
     let mut working_config = config.clone();
     working_config.test_mode = false;
+    let _ = compile_package(working_config, tempdir.path())?;
+
+    Ok(())
+}
+
+pub(crate) fn compile_package(
+    build_config: BuildConfig,
+    package_path: &Path,
+) -> anyhow::Result<CompiledPackage> {
+    let mut compilation_msg = vec![];
 
     // Compile the package.
-    //TODO: It might be better to use the different compiler stage to speed up the whole
-    // process. For the verification purposes it might be suffcient some earlier stage,
-    // e.g. type-checking.
-    working_config.compile_package_no_exit(tempdir.path(), &mut compilation_msg)?;
+    let (compiled_package, _env) =
+        build_config.compile_package_no_exit(package_path, &mut compilation_msg)?;
 
     info!(
         "Compilation status: {}",
@@ -340,7 +346,7 @@ pub fn verify_mutant(
             .unwrap_or("Internal error: can't convert compilation error to UTF8".to_string())
     );
 
-    Ok(())
+    Ok(compiled_package)
 }
 
 /// Rewrite the manifest file to use absolute paths.
