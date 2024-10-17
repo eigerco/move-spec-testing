@@ -157,21 +157,22 @@ impl UncoveredSpans {
 // there maybe and then use a more efficient `merge_spans` function from aptos-core repo.
 /// Efficiently merge spans.
 fn merge_spans(file_hash: FileHash, cov: FunctionSourceCoverage) -> Vec<Span> {
-    cov.uncovered_locations
+    let mut spans = cov
+        .uncovered_locations
         .iter()
         .filter(|loc| loc.file_hash() == file_hash)
         .map(|loc| Span::new(loc.start(), loc.end()))
-        .collect::<Vec<_>>()
-        .windows(2)
-        .fold(vec![], |mut acc, spans| {
-            let [curr, next] = spans else { return acc };
-            if curr.end() >= next.start() {
-                acc.push(curr.merge(*next));
-            } else {
-                acc.push(*curr);
-            }
-            acc
-        })
+        .collect::<Vec<_>>();
+    spans.sort();
+    spans.windows(2).fold(vec![], |mut acc, spans| {
+        let [curr, next] = spans else { return acc };
+        if curr.end() >= next.start() {
+            acc.push(curr.merge(*next));
+        } else {
+            acc.push(*curr);
+        }
+        acc
+    })
 }
 
 /// Remove all whitespaces between spans and merge spans again.
