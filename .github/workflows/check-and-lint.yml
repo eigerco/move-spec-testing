@@ -2,16 +2,30 @@ name: Basic check and lint
 
 on:
   push:
-    branches: [ main, develop-m2, develop-m3, develop-m4 ]
+    branches: [ main, develop-m3, develop-m4 ]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - move-mutator/**
+      - move-spec-test/**
+      - move-mutation-test/**
+      - .github/workflows/check-and-lint.yml
   pull_request:
-    branches: [ main, develop-m2, develop-m3, develop-m4 ]
+    branches: [ main, develop-m3, develop-m4 ]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - move-mutator/**
+      - move-spec-test/**
+      - move-mutation-test/**
+      - .github/workflows/check-and-lint.yml
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   basic-lint-and-check:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: Basic ci-check for fmt/clippy/check
     steps:
       - uses: actions/checkout@v2
@@ -33,3 +47,6 @@ jobs:
 
       - name: Run clippy
         run: cargo +nightly clippy --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test
