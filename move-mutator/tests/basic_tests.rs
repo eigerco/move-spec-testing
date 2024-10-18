@@ -7,8 +7,30 @@ use move_mutator::{
     configuration::FunctionFilter,
 };
 use move_package::BuildConfig;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use tempfile::tempdir;
+
+fn clone_project(move_asset_project: &str) -> PathBuf {
+    let outdir = tempdir().unwrap().into_path();
+    let package_path = Path::new(move_asset_project);
+
+    if let Err(e) = move_mutator::compiler::copy_dir_all(&package_path, &outdir) {
+        panic!("failed to clone {package_path:?} to {outdir:?}: {e}");
+    }
+
+    outdir
+}
+
+fn quick_build_config() -> BuildConfig {
+    BuildConfig {
+        // Let's make it faster.
+        skip_fetch_latest_git_deps: true,
+        ..Default::default()
+    }
+}
 
 const PACKAGE_PATHS: &[&str] = &[
     "tests/move-assets/breakcontinue",
@@ -17,6 +39,8 @@ const PACKAGE_PATHS: &[&str] = &[
     "tests/move-assets/relative_dep/p2",
     "tests/move-assets/same_names",
     "tests/move-assets/simple",
+    "tests/move-assets/skip_mutation_examples",
+    "tests/move-assets/check_swap_operator",
 ];
 
 // Check if the mutator works correctly on the basic packages.
@@ -38,11 +62,7 @@ fn check_mutator_works_correctly() {
         apply_coverage: false,
     };
 
-    let config = BuildConfig {
-        // Let's make it faster.
-        skip_fetch_latest_git_deps: true,
-        ..Default::default()
-    };
+    let config = quick_build_config();
 
     for package_path in PACKAGE_PATHS {
         let package_path = Path::new(package_path);
@@ -60,7 +80,8 @@ fn check_mutator_works_correctly() {
 
 #[test]
 fn check_mutator_verify_mutants_correctly() {
-    let outdir = tempdir().unwrap().into_path();
+    let package_path = clone_project("tests/move-assets/poor_spec");
+    let outdir = package_path.join("outdir");
 
     let options = CLIOptions {
         move_sources: vec![],
@@ -75,11 +96,9 @@ fn check_mutator_verify_mutants_correctly() {
         apply_coverage: false,
     };
 
-    let config = BuildConfig::default();
+    let config = quick_build_config();
 
-    let package_path = Path::new(PACKAGE_PATHS[1]);
-
-    let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
+    let result = move_mutator::run_move_mutator(options.clone(), &config, &package_path);
     assert!(result.is_ok());
 
     let report_path = outdir.join("report.json");
@@ -107,7 +126,7 @@ fn check_mutator_fails_on_non_existing_path() {
         apply_coverage: false,
     };
 
-    let config = BuildConfig::default();
+    let config = quick_build_config();
 
     let package_path = PathBuf::from("/very/random/path");
 
@@ -131,17 +150,18 @@ fn check_mutator_fails_on_non_existing_output_path() {
         apply_coverage: false,
     };
 
-    let config = BuildConfig::default();
+    let config = quick_build_config();
 
-    let package_path = Path::new(PACKAGE_PATHS[0]);
+    let package_path = clone_project("tests/move-assets/poor_spec");
 
-    let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
+    let result = move_mutator::run_move_mutator(options.clone(), &config, &package_path);
     assert!(result.is_err());
 }
 
 // Check if the mutator works with single files that do not require deps/address resolving.
 #[test]
 fn check_mutator_works_with_simple_single_files() {
+    let package_path = Path::new(".");
     let outdir = tempdir().unwrap().into_path();
 
     let options = CLIOptions {
@@ -157,9 +177,7 @@ fn check_mutator_works_with_simple_single_files() {
         apply_coverage: false,
     };
 
-    let config = BuildConfig::default();
-
-    let package_path = Path::new(".");
+    let config = quick_build_config();
 
     let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
     assert!(result.is_ok());
@@ -174,6 +192,7 @@ fn check_mutator_works_with_simple_single_files() {
 // Check if the mutator fails properly with single files that do require deps/address resolving.
 #[test]
 fn check_mutator_properly_fails_with_single_files_that_require_dep_or_addr_resolving() {
+    let package_path = Path::new(".");
     let outdir = tempdir().unwrap().into_path();
 
     let options = CLIOptions {
@@ -189,9 +208,7 @@ fn check_mutator_properly_fails_with_single_files_that_require_dep_or_addr_resol
         apply_coverage: false,
     };
 
-    let config = BuildConfig::default();
-
-    let package_path = Path::new(".");
+    let config = quick_build_config();
 
     let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
     assert!(result.is_err());
@@ -204,7 +221,8 @@ fn check_mutator_properly_fails_with_single_files_that_require_dep_or_addr_resol
 // files without any package (we're unable to verify such files successfully).
 #[test]
 fn check_mutator_fails_verify_file_without_package() {
-    let outdir = tempdir().unwrap().into_path();
+    let package_path = Path::new(".");
+    let outdir = package_path.join("outdir");
 
     let options = CLIOptions {
         move_sources: vec!["tests/move-assets/file_without_package/Sub.move".into()],
@@ -219,9 +237,7 @@ fn check_mutator_fails_verify_file_without_package() {
         apply_coverage: false,
     };
 
-    let config = BuildConfig::default();
-
-    let package_path = Path::new(".");
+    let config = quick_build_config();
 
     let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
     assert!(result.is_ok());
@@ -237,7 +253,8 @@ fn check_mutator_fails_verify_file_without_package() {
 // specified functions.
 #[test]
 fn check_mutator_cli_filters_functions_properly() {
-    let outdir = tempdir().unwrap().into_path();
+    let package_path = clone_project("tests/move-assets/simple");
+    let outdir = package_path.join("outdir");
 
     // All these functions exist in the project `simple`.
     let target_function_1 = "or";
@@ -260,10 +277,9 @@ fn check_mutator_cli_filters_functions_properly() {
         apply_coverage: false,
     };
 
-    let config = BuildConfig::default();
-    let package_path = Path::new("tests/move-assets/simple");
+    let config = quick_build_config();
 
-    let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
+    let result = move_mutator::run_move_mutator(options.clone(), &config, &package_path);
     assert!(result.is_ok());
 
     let report_path = outdir.join("report.json");
@@ -288,11 +304,7 @@ fn check_mutator_cli_filters_functions_properly() {
 // each run on specific function.
 #[test]
 fn check_mutator_swap_operator_works_correctly_for_corner_cases() {
-    let config = BuildConfig {
-        // Let's make it faster.
-        skip_fetch_latest_git_deps: true,
-        ..Default::default()
-    };
+    let config = quick_build_config();
 
     // Function names and number of swap mutation operations
     let functions_and_exected_swap_op_count = [
@@ -305,7 +317,8 @@ fn check_mutator_swap_operator_works_correctly_for_corner_cases() {
     ];
 
     for (fn_name, expected_swap_op_count) in functions_and_exected_swap_op_count {
-        let outdir = tempdir().unwrap().into_path();
+        let package_path = clone_project("tests/move-assets/check_swap_operator");
+        let outdir = package_path.join("outdir");
 
         let options = CLIOptions {
             move_sources: vec![],
@@ -319,9 +332,8 @@ fn check_mutator_swap_operator_works_correctly_for_corner_cases() {
             configuration_file: None,
             apply_coverage: false,
         };
-        let package_path = Path::new("tests/move-assets/check_swap_operator");
 
-        let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
+        let result = move_mutator::run_move_mutator(options.clone(), &config, &package_path);
         assert!(result.is_ok());
 
         let report_path = outdir.join("report.json");
@@ -344,6 +356,7 @@ fn check_mutator_swap_operator_works_correctly_for_corner_cases() {
             total_swap_op_count, expected_swap_op_count,
             "failed for function {fn_name}"
         );
+        let _ = fs::remove_dir_all(package_path);
     }
 }
 
@@ -351,11 +364,7 @@ fn check_mutator_swap_operator_works_correctly_for_corner_cases() {
 // each run on specific function.
 #[test]
 fn check_mutator_binary_replacement_operator_works_correctly_for_corner_cases_v1() {
-    let config = BuildConfig {
-        // Let's make it faster.
-        skip_fetch_latest_git_deps: true,
-        ..Default::default()
-    };
+    let config = quick_build_config();
 
     // Function names and number of swap mutation operations
     let functions_cur_op_forbidden_ops = [
@@ -369,7 +378,8 @@ fn check_mutator_binary_replacement_operator_works_correctly_for_corner_cases_v1
     ];
 
     for (fn_name, orig_op, forbidden_ops) in functions_cur_op_forbidden_ops {
-        let outdir = tempdir().unwrap().into_path();
+        let package_path = clone_project("tests/move-assets/simple");
+        let outdir = package_path.join("outdir");
 
         let options = CLIOptions {
             move_sources: vec![],
@@ -383,9 +393,8 @@ fn check_mutator_binary_replacement_operator_works_correctly_for_corner_cases_v1
             configuration_file: None,
             apply_coverage: false,
         };
-        let package_path = Path::new("tests/move-assets/simple");
 
-        let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
+        let result = move_mutator::run_move_mutator(options.clone(), &config, &package_path);
         assert!(result.is_ok());
 
         let report_path = outdir.join("report.json");
@@ -413,26 +422,22 @@ fn check_mutator_binary_replacement_operator_works_correctly_for_corner_cases_v1
 
 #[test]
 fn check_mutator_uses_skip_mutation_attribute_properly() {
-    let config = BuildConfig {
-        // Let's make it faster.
-        skip_fetch_latest_git_deps: true,
-        ..Default::default()
-    };
+    let config = quick_build_config();
 
     let expected_module = "BasicOps";
     let expected_fn = "sum";
     let skipped_module = "SkipSum";
     let skipped_fn = ["skip_sub", "skip_sum"];
-    let package_path = Path::new("tests/move-assets/skip_mutation_examples");
 
-    let outdir = tempdir().unwrap().into_path();
+    let package_path = clone_project("tests/move-assets/skip_mutation_examples");
+    let outdir = package_path.join("outdir");
 
     let options = CLIOptions {
         out_mutant_dir: Some(outdir.clone()),
         ..Default::default()
     };
 
-    let result = move_mutator::run_move_mutator(options.clone(), &config, package_path);
+    let result = move_mutator::run_move_mutator(options.clone(), &config, &package_path);
     assert!(result.is_ok());
 
     let report_path = outdir.join("report.json");
