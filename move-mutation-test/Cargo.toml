@@ -22,6 +22,7 @@ aptos-gas-schedule = { workspace = true }
 aptos-types = { workspace = true }
 aptos-vm = { workspace = true }
 clap = { workspace = true }
+fs_extra = { workspace = true }
 log = { workspace = true }
 move-cli = { workspace = true }
 move-command-line-common = { workspace = true }
@@ -35,5 +36,4 @@ mutator-common = { workspace = true }
 pretty_env_logger = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
-tempfile = { workspace = true }
 termcolor = { workspace = true }

@@ -15,8 +15,12 @@ use crate::{
     mutation_test::{run_tests_on_mutated_code, run_tests_on_original_code},
 };
 use cli::TestBuildConfig;
-use move_package::{source_package::layout::SourcePackageLayout, BuildConfig};
-use mutator_common::report::{MiniReport, MutantStatus, Report};
+use fs_extra::dir::CopyOptions;
+use move_package::BuildConfig;
+use mutator_common::{
+    report::{MiniReport, MutantStatus, Report},
+    tmp_package_dir::{setup_outdir_and_package_path, strip_path_prefix},
+};
 use rayon::prelude::*;
 use std::{
     fs,
@@ -50,12 +54,10 @@ pub fn run_mutation_test(
     // (e.g. move-mutator). If we use init() instead, we will get an abort.
     let _ = pretty_env_logger::try_init();
 
-    // Check if the package is correctly structured.
-    let package_path = SourcePackageLayout::try_find_root(
-        &test_config.move_pkg.get_package_path()?.canonicalize()?,
-    )?;
+    // Setup output dir and clone package path there.
+    let original_package_path = test_config.move_pkg.get_package_path()?;
+    let (outdir, package_path) = setup_outdir_and_package_path(original_package_path)?;
 
-    info!("Found package path: {package_path:?}");
     info!("Running tool the following options: {options:?} and test config: {test_config:?}");
 
     // Always create and use benchmarks.
@@ -68,12 +70,6 @@ pub fn run_mutation_test(
     run_tests_on_original_code(test_config, &package_path)?;
 
     // Create mutants:
-
-    // Setup temporary directory structure.
-    let outdir = tempfile::tempdir()?.into_path();
-    let outdir_original = outdir.join("base");
-    fs::create_dir_all(outdir_original)?;
-
     let outdir_mutant = if let Some(mutant_path) = &options.use_generated_mutants {
         mutant_path.clone()
     } else {
@@ -102,6 +98,7 @@ pub fn run_mutation_test(
 
     // Run tests on mutants:
     benchmarks.mutation_test.start();
+    let cp_opts = CopyOptions::new().content_only(true);
     let (mutation_test_benchmarks, mini_reports): (Vec<Benchmark>, Vec<MiniReport>) = report
         .get_mutants()
         .par_iter()
@@ -116,35 +113,32 @@ pub fn run_mutation_test(
                 mutant_file.display()
             );
 
-            // Strip prefix to get the path relative to the package directory (or take that path if it's already relative).
-            let original_file = elem
-                .original_file_path()
-                .strip_prefix(&package_path)
-                .unwrap_or(elem.original_file_path());
-            let job_work_dir = format!("mutation_test_{rayon_thread_id}");
-            let outdir = outdir.join(job_work_dir);
+            // Strip prefix to get the path relative to the package directory.
+            let original_file =
+                strip_path_prefix(elem.original_file_path()).expect("invalid package path");
 
-            let _ = fs::remove_dir_all(&outdir);
-            move_mutator::compiler::copy_dir_all(&package_path, &outdir)
+            let job_outdir = outdir.join(format!("mutation_test_{rayon_thread_id}"));
+            let _ = fs::remove_dir_all(&job_outdir);
+
+            fs_extra::dir::copy(&package_path, &job_outdir, &cp_opts)
                 .expect("copying directory failed");
 
             trace!(
                 "Copying mutant file {} to the package directory {:?}",
                 mutant_file.display(),
-                outdir.join(original_file)
+                job_outdir.join(&original_file)
             );
-
             // Should never fail, since files will always exists.
-            let _ = fs::copy(mutant_file, outdir.join(original_file));
+            fs::copy(mutant_file, job_outdir.join(&original_file)).expect("copying file failed");
 
             if let Err(e) =
-                move_mutator::compiler::rewrite_manifest_for_mutant(&package_path, &outdir)
+                move_mutator::compiler::rewrite_manifest_for_mutant(&package_path, &job_outdir)
             {
                 panic!("rewriting manifest for mutant failed: {e}");
             }
 
             benchmark.start();
-            let result = run_tests_on_mutated_code(test_config, &outdir);
+            let result = run_tests_on_mutated_code(test_config, &job_outdir);
             benchmark.stop();
 
             let mutant_status = if let Err(e) = result {

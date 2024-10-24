@@ -7,3 +7,6 @@ pub mod report;
 
 /// A module for displaying reports in a nice fashion.
 pub mod display_report;
+
+/// A path setup container for packages under test.
+pub mod tmp_package_dir;

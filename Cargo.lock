@@ -8094,6 +8094,7 @@ dependencies = [
  "aptos-types",
  "aptos-vm",
  "clap 4.5.20",
+ "fs_extra",
  "log",
  "move-cli",
  "move-command-line-common",
@@ -8107,7 +8108,6 @@ dependencies = [
  "pretty_env_logger",
  "rayon",
  "serde",
- "tempfile",
  "termcolor",
 ]
 
@@ -8270,6 +8270,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap 4.5.20",
+ "fs_extra",
  "log",
  "move-model",
  "move-mutator",
@@ -8279,7 +8280,6 @@ dependencies = [
  "pretty_env_logger",
  "rayon",
  "serde",
- "tempfile",
  "termcolor",
 ]
 
@@ -8478,6 +8478,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "diffy",
+ "fs_extra",
+ "log",
+ "move-package",
  "prettytable-rs",
  "serde",
  "serde_json",
