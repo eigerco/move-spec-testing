@@ -160,7 +160,7 @@ impl Report {
                 };
 
                 builder.push_record([
-                    format!("{}::{}", path.to_string_lossy(), stat.module_func.clone()),
+                    format!("{}::{}", path.display(), stat.module_func.clone()),
                     stat.tested.to_string(),
                     stat.killed.to_string(),
                     format!("{percentage:.2}%"),

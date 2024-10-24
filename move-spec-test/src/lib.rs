@@ -17,8 +17,12 @@ use crate::{
     prover::prove,
 };
 use anyhow::anyhow;
-use move_package::{source_package::layout::SourcePackageLayout, BuildConfig};
-use mutator_common::report::{MiniReport, MutantStatus, Report};
+use fs_extra::dir::CopyOptions;
+use move_package::BuildConfig;
+use mutator_common::{
+    report::{MiniReport, MutantStatus, Report},
+    tmp_package_dir::{setup_outdir_and_package_path, strip_path_prefix},
+};
 use rayon::prelude::*;
 use std::{
     fs,
@@ -48,16 +52,15 @@ use std::{
 pub fn run_spec_test(
     options: &cli::CLIOptions,
     config: &BuildConfig,
-    package_path: &Path,
+    original_package_path: &Path,
 ) -> anyhow::Result<()> {
     // We need to initialize logger using try_init() as it might be already initialized in some other tool
     // (e.g. move-mutator). If we use init() instead, we will get an abort.
     let _ = pretty_env_logger::try_init();
 
-    // Check if package is correctly structured.
-    let package_path = SourcePackageLayout::try_find_root(&package_path.canonicalize()?)?;
+    // Setup output dir and clone package path there.
+    let (outdir, package_path) = setup_outdir_and_package_path(original_package_path)?;
 
-    info!("Found package path: {package_path:?}");
     info!("Running specification tester with the following options: {options:?}");
 
     // Always create and use benchmarks.
@@ -78,12 +81,6 @@ pub fn run_spec_test(
         return Err(anyhow!(msg));
     }
 
-    // Setup temporary directory structure.
-    let outdir = tempfile::tempdir()?.into_path();
-    let outdir_original = outdir.join("base");
-
-    fs::create_dir_all(&outdir_original)?;
-
     // We can skip fetching the latest deps for generating mutants and proving those mutants
     // since the original prover verification already fetched the latest dependencies.
     let mut quick_config = config.clone();
@@ -93,7 +90,6 @@ pub fn run_spec_test(
         mutant_path.clone()
     } else {
         benchmarks.mutator.start();
-
         let outdir_mutant = run_mutator(options, &quick_config, &package_path, &outdir)?;
         benchmarks.mutator.stop();
         outdir_mutant
@@ -102,10 +98,8 @@ pub fn run_spec_test(
     let report =
         move_mutator::report::Report::load_from_json_file(&outdir_mutant.join("report.json"))?;
 
-    // Proving part.
-    move_mutator::compiler::copy_dir_all(&package_path, &outdir_original)?;
-
     benchmarks.prover.start();
+    let cp_opts = CopyOptions::new().content_only(true);
     let (proving_benchmarks, mini_reports): (Vec<Benchmark>, Vec<MiniReport>) = report
         .get_mutants()
         .par_iter()
@@ -120,35 +114,32 @@ pub fn run_spec_test(
                 mutant_file.display()
             );
 
-            // Strip prefix to get the path relative to the package directory (or take that path if it's already relative).
-            let original_file = elem
-                .original_file_path()
-                .strip_prefix(&package_path)
-                .unwrap_or(elem.original_file_path());
-            let job_work_dir = format!("prover_{rayon_thread_id}");
-            let outdir = outdir.join(job_work_dir);
+            // Strip prefix to get the path relative to the package directory.
+            let original_file =
+                strip_path_prefix(elem.original_file_path()).expect("invalid package path");
+            let job_outdir = outdir.join(format!("prover_{rayon_thread_id}"));
 
-            let _ = fs::remove_dir_all(&outdir);
-            move_mutator::compiler::copy_dir_all(&package_path, &outdir)
+            let _ = fs::remove_dir_all(&job_outdir);
+            fs_extra::dir::copy(&package_path, &job_outdir, &cp_opts)
                 .expect("copying directory failed");
 
             trace!(
-                "Copying mutant file {mutant_file:?} to the package directory {:?}",
-                outdir.join(original_file)
+                "Copying mutant file {} to the package directory {}",
+                mutant_file.display(),
+                outdir.join(&original_file).display()
             );
-
             // Should never fail, since files will always exists.
-            let _ = fs::copy(mutant_file, outdir.join(original_file));
+            fs::copy(mutant_file, job_outdir.join(&original_file)).expect("copying file failed");
 
             if let Err(e) =
-                move_mutator::compiler::rewrite_manifest_for_mutant(&package_path, &outdir)
+                move_mutator::compiler::rewrite_manifest_for_mutant(&package_path, &job_outdir)
             {
                 panic!("rewriting manifest for mutant failed: {e}");
             }
 
             benchmark.start();
             let mut error_writer = std::io::sink();
-            let result = prove(&quick_config, &outdir, &prover_conf, &mut error_writer);
+            let result = prove(&quick_config, &job_outdir, &prover_conf, &mut error_writer);
             benchmark.stop();
 
             let mutant_status = if let Err(e) = result {
