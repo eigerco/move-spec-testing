@@ -71,7 +71,7 @@ impl Benchmarks {
     pub fn display(&self) {
         info!(
             "Test execution time on the original package is {} msecs",
-            self.total_tool_duration.elapsed.as_millis()
+            self.executing_original_package.elapsed.as_millis()
         );
         info!(
             "Generating mutants took {} msecs",
