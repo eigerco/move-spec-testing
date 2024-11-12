@@ -11,7 +11,7 @@ use move_cli::base::test::UnitTestResult;
 use move_command_line_common::address::NumericalAddress;
 use move_package::BuildConfig;
 use move_unit_test::UnitTestingConfig;
-use std::{fs, path::Path};
+use std::{fs, path::Path, thread};
 use termcolor::WriteColor;
 
 /// Runs tests on the original code and produces a nice informative output.
@@ -36,11 +36,15 @@ pub(crate) fn run_tests_on_original_code(
     // We need to check for the latest git deps only for the first time we run the test.
     let skip_fetch_deps = false;
 
+    let num_threads = thread::available_parallelism()?.get();
+    info!("using {num_threads} number of threads to run the testsuite on the original package");
+
     let result = run_tests(
         cfg,
         package_path,
         skip_fetch_deps,
         report_statistics,
+        num_threads,
         &mut error_writer,
     );
 
@@ -83,13 +87,21 @@ pub(crate) fn run_tests_on_mutated_code(
     let mut error_writer = std::io::sink();
 
     // Do not calculate the coverage on mutants.
-    let test_config = cfg.disable_coverage();
+    let mut test_config = cfg.clone();
+    test_config.apply_coverage = false;
+    test_config.ignore_compile_warnings = true;
+    test_config.move_pkg.skip_attribute_checks = true;
+
+    // Rayon pool will utilize all CPU threads anyway, so one test thread per the bigger rayon
+    // thread should be more than enought. Using more threads here slows the overall time.
+    let num_threads = 1;
 
     run_tests(
         &test_config,
         package_path,
         skip_fetch_deps,
         report_statistics,
+        num_threads,
         &mut error_writer,
     )
 }
@@ -102,6 +114,7 @@ fn run_tests<W: WriteColor + Send>(
     package_path: &Path,
     skip_fetch_latest_git_deps: bool,
     report_statistics: bool,
+    num_threads: usize,
     mut error_writer: &mut W,
 ) -> anyhow::Result<()> {
     let config = BuildConfig {
@@ -121,6 +134,7 @@ fn run_tests<W: WriteColor + Send>(
     // while mutants with infinite loops will be killed quite quickly.
     let gas_limit = Some(cfg.gas_limit);
 
+    warn!("running the test for {package_path:?}\n {config:?}\n\n");
     let result = move_cli::base::test::run_move_unit_tests(
         package_path,
         config.clone(),
@@ -129,6 +143,7 @@ fn run_tests<W: WriteColor + Send>(
             report_storage_on_error: cfg.dump_state,
             ignore_compile_warnings: cfg.ignore_compile_warnings,
             report_statistics,
+            num_threads,
             named_address_values: cfg
                 .move_pkg
                 .named_addresses()
@@ -150,6 +165,11 @@ fn run_tests<W: WriteColor + Send>(
         &mut error_writer,
     )
     .map_err(|err| Error::msg(format!("failed to run unit tests: {err:#}")))?;
+
+    if let Err(e) = error_writer.flush() {
+        error!("flushing failed: {e:?}");
+    }
+    warn!("finished running the test for {package_path:?}");
 
     // Disk space optimization:
     if cfg.apply_coverage {

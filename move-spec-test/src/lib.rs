@@ -69,7 +69,9 @@ pub fn run_spec_test(
 
     let mut error_writer = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
 
+    benchmarks.executing_original_package.start();
     let result = prove(config, &package_path, &prover_conf, &mut error_writer);
+    benchmarks.executing_original_package.stop();
 
     if let Err(e) = result {
         let msg = format!("Original code verification failed! Prover failed with error: {e}");

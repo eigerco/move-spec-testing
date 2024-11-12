@@ -132,13 +132,6 @@ impl TestBuildConfig {
             experiments: experiments_from_opt_level(&self.move_pkg.optimize),
         }
     }
-
-    /// Returns [`TestBuildConfig`] with the coverage option disabled.
-    pub fn disable_coverage(&self) -> Self {
-        let mut cfg = self.clone();
-        cfg.apply_coverage = false;
-        cfg
-    }
 }
 
 /// Get bytecode version.

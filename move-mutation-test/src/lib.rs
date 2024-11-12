@@ -64,7 +64,9 @@ pub fn run_mutation_test(
     benchmarks.total_tool_duration.start();
 
     // Run original tests to ensure the original tests are working:
+    benchmarks.executing_original_package.start();
     run_tests_on_original_code(test_config, &package_path)?;
+    benchmarks.executing_original_package.stop();
 
     // Create mutants:
     let outdir_mutant = if let Some(mutant_path) = &options.use_generated_mutants {
