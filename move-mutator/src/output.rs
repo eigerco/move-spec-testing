@@ -121,7 +121,7 @@ pub(crate) fn setup_output_dir(mutator_configuration: &Configuration) -> anyhow:
     let _ = fs::remove_dir_all(&output_dir);
     fs::create_dir(&output_dir)?;
 
-    debug!("Output directory set to: {output_dir:?}");
+    info!("Output directory set to: {output_dir:?}");
 
     Ok(output_dir)
 }

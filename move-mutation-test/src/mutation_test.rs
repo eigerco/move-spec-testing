@@ -134,7 +134,7 @@ fn run_tests<W: WriteColor + Send>(
     // while mutants with infinite loops will be killed quite quickly.
     let gas_limit = Some(cfg.gas_limit);
 
-    warn!("running the test for {package_path:?}\n {config:?}\n\n");
+    trace!("running the test for {package_path:?}\n {config:?}\n\n");
     let result = move_cli::base::test::run_move_unit_tests(
         package_path,
         config.clone(),
