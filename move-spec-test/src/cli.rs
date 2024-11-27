@@ -4,27 +4,35 @@
 
 use clap::Parser;
 use move_mutator::cli::{FunctionFilter, ModuleFilter, PackagePathCheck};
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Command line options for specification test tool.
-#[derive(Parser, Default, Debug, Clone, Deserialize, Serialize)]
-#[serde(default, deny_unknown_fields)]
+#[derive(Parser, Default, Debug, Clone)]
 pub struct CLIOptions {
     /// The paths to the Move sources.
-    #[clap(long, short, value_parser)]
+    #[clap(long, value_parser)]
     pub move_sources: Vec<PathBuf>,
 
     /// Work only over specified modules.
-    #[clap(long, value_parser, default_value = "all")]
+    #[clap(
+        long,
+        value_parser,
+        default_value = "all",
+        conflicts_with = "use_generated_mutants"
+    )]
     pub mutate_modules: ModuleFilter,
 
     /// Work only over specified functions (these are not qualifed functions).
-    #[clap(short = 'f', long, value_parser, default_value = "all")]
+    #[clap(
+        long,
+        value_parser,
+        default_value = "all",
+        conflicts_with = "use_generated_mutants"
+    )]
     pub mutate_functions: FunctionFilter,
 
     /// Optional configuration file for mutator tool.
-    #[clap(long, value_parser)]
+    #[clap(long, value_parser, conflicts_with = "use_generated_mutants")]
     pub mutator_conf: Option<PathBuf>,
 
     /// Optional configuration file for prover tool.
@@ -32,20 +40,28 @@ pub struct CLIOptions {
     pub prover_conf: Option<PathBuf>,
 
     /// Save report to a JSON file.
-    #[clap(short, long, value_parser)]
+    #[clap(long, value_parser)]
     pub output: Option<PathBuf>,
 
     /// Use previously generated mutants.
-    #[clap(long, short, value_parser)]
+    #[clap(long, value_parser)]
     pub use_generated_mutants: Option<PathBuf>,
 
     /// Indicates if mutants should be verified and made sure mutants can compile.
-    #[clap(long, default_value = "false")]
+    #[clap(
+        long,
+        default_value = "false",
+        conflicts_with = "use_generated_mutants"
+    )]
     pub verify_mutants: bool,
 
     /// Extra arguments to pass to the prover.
     #[clap(long, value_parser)]
     pub extra_prover_args: Option<Vec<String>>,
+
+    /// Remove averagely given percentage of mutants. See the doc for more details.
+    #[clap(long, conflicts_with = "use_generated_mutants")]
+    pub downsampling_ratio_percentage: Option<usize>,
 }
 
 impl<'a> PackagePathCheck<'a> for CLIOptions {
@@ -61,8 +77,8 @@ pub fn create_mutator_options(options: &CLIOptions) -> move_mutator::cli::CLIOpt
         move_sources: options.move_sources.clone(),
         mutate_modules: options.mutate_modules.clone(),
         mutate_functions: options.mutate_functions.clone(),
-        configuration_file: options.mutator_conf.clone(),
         verify_mutants: options.verify_mutants,
+        downsampling_ratio_percentage: options.downsampling_ratio_percentage,
         ..Default::default()
     }
 }
@@ -81,21 +97,6 @@ pub fn generate_prover_options(options: &CLIOptions) -> anyhow::Result<move_prov
     };
 
     Ok(prover_conf)
-}
-
-/// This function checks if the mutator output path is provided in the configuration file.
-/// We don't need to check if the mutator output path is provided in the options as they were created
-/// from the spec-test options which does not allow setting it.
-#[must_use]
-pub fn check_mutator_output_path(options: &move_mutator::cli::CLIOptions) -> Option<PathBuf> {
-    if let Some(conf) = &options.configuration_file {
-        let c = move_mutator::configuration::Configuration::from_file(conf);
-        if let Ok(c) = c {
-            return c.project.out_mutant_dir;
-        }
-    };
-
-    None
 }
 
 #[cfg(test)]
@@ -130,40 +131,6 @@ mod tests {
         assert_eq!(mutator_options.move_sources, options.move_sources);
         assert_eq!(mutator_options.mutate_modules, options.mutate_modules);
         assert_eq!(mutator_options.mutate_functions, options.mutate_functions);
-        assert_eq!(mutator_options.configuration_file, options.mutator_conf);
-    }
-
-    #[test]
-    fn check_mutator_output_path_returns_none_when_no_conf() {
-        let options = move_mutator::cli::CLIOptions::default();
-        assert!(check_mutator_output_path(&options).is_none());
-    }
-
-    #[test]
-    fn check_mutator_output_path_returns_path_when_conf_exists() {
-        let json_content = r#"
-            {
-                "project": {
-                    "move_sources": ["/path/to/move/source"],
-                    "out_mutant_dir": "path/to/out_mutant_dir"
-                },
-                "project_path": "/path/to/project",
-                "individual": []
-            }
-        "#;
-
-        fs::write("test_mutator_conf.json", json_content).unwrap();
-
-        let options = move_mutator::cli::CLIOptions {
-            configuration_file: Some(PathBuf::from("test_mutator_conf.json")),
-            ..Default::default()
-        };
-
-        let path = check_mutator_output_path(&options);
-        fs::remove_file("test_mutator_conf.json").unwrap();
-
-        assert!(path.is_some());
-        assert_eq!(path.unwrap(), PathBuf::from("path/to/out_mutant_dir"));
     }
 
     #[test]

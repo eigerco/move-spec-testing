@@ -45,6 +45,8 @@ impl Benchmark {
 pub struct Benchmarks {
     /// Total time for the whole tool to complete.
     pub total_tool_duration: Benchmark,
+    /// Benchmark for the test execution on all mutants.
+    pub executing_original_package: Benchmark,
     /// Benchmark for the mutator.
     pub mutator: Benchmark,
     /// Benchmark for the test execution on all mutants.
@@ -58,6 +60,7 @@ impl Benchmarks {
     pub fn new() -> Self {
         Self {
             total_tool_duration: Benchmark::new(),
+            executing_original_package: Benchmark::new(),
             mutator: Benchmark::new(),
             executing_tests_on_mutants: Benchmark::new(),
             mutant_results: Vec::new(),
@@ -67,8 +70,8 @@ impl Benchmarks {
     /// Displays the benchmarks with the `RUST_LOG` info level.
     pub fn display(&self) {
         info!(
-            "Total tool execution time is {} msecs",
-            self.total_tool_duration.elapsed.as_millis()
+            "Test execution time on the original package is {} msecs",
+            self.executing_original_package.elapsed.as_millis()
         );
         info!(
             "Generating mutants took {} msecs",
@@ -96,14 +99,15 @@ impl Benchmarks {
                     .unwrap()
             );
             info!(
-                "Average execution time for each mutant: {} msecs",
-                self.mutant_results
-                    .iter()
-                    .map(|f| f.elapsed.as_millis())
-                    .sum::<u128>()
-                    / self.mutant_results.len() as u128
+                "Average execution time for each mutant: {:.2} msecs",
+                self.executing_tests_on_mutants.elapsed.as_millis() as f64
+                    / self.mutant_results.len() as f64
             );
         }
+        info!(
+            "Total tool execution time is {} msecs",
+            self.total_tool_duration.elapsed.as_millis()
+        );
     }
 }
 
@@ -143,27 +147,35 @@ mod tests {
 
     #[test]
     fn benchmarks_records_multiple_benchmarks() {
+        const TEN: u64 = 10;
+
         let mut benchmarks = Benchmarks {
             total_tool_duration: Benchmark::new(),
+            executing_original_package: Benchmark::new(),
             mutator: Benchmark::new(),
             executing_tests_on_mutants: Benchmark::new(),
             mutant_results: Vec::new(),
         };
 
         benchmarks.total_tool_duration.start();
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(TEN));
         benchmarks.total_tool_duration.stop();
 
+        benchmarks.executing_original_package.start();
+        thread::sleep(Duration::from_millis(TEN));
+        benchmarks.executing_original_package.stop();
+
         benchmarks.mutator.start();
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(TEN));
         benchmarks.mutator.stop();
 
         benchmarks.executing_tests_on_mutants.start();
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(TEN));
         benchmarks.executing_tests_on_mutants.stop();
 
-        assert!(benchmarks.total_tool_duration.elapsed >= Duration::from_millis(100));
-        assert!(benchmarks.mutator.elapsed >= Duration::from_millis(100));
-        assert!(benchmarks.executing_tests_on_mutants.elapsed >= Duration::from_millis(100));
+        assert!(benchmarks.total_tool_duration.elapsed >= Duration::from_millis(TEN));
+        assert!(benchmarks.executing_original_package.elapsed >= Duration::from_millis(TEN));
+        assert!(benchmarks.mutator.elapsed >= Duration::from_millis(TEN));
+        assert!(benchmarks.executing_tests_on_mutants.elapsed >= Duration::from_millis(TEN));
     }
 }

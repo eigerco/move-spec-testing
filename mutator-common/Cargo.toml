@@ -16,7 +16,6 @@ clap = { workspace = true }
 diffy = { workspace = true }
 fs_extra = { workspace = true }
 log = { workspace = true }
-move-mutator = { workspace = true }
 move-package = { workspace = true }
 prettytable-rs = { workspace = true }
 serde = { workspace = true }

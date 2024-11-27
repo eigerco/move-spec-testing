@@ -102,8 +102,7 @@ Diff:
 
 It contains an API module that exposes function calls to other modules
 (internal or external). It is mainly used to expose the `run_move_mutator`
-function, which is the entry point to the Move mutator tool. It takes the
-configuration file path as an argument and returns the list of mutants.
+function, which is the entry point to the Move mutator tool.
 
 ### Main logic layer
 
@@ -147,10 +146,6 @@ mutation operator has categories like arithmetic, bitwise, and shifts. When the
 If so, it chooses an appropriate category based on the expression. ALL
 mutations within the category are applied.
 
-The above means that the operator tool can produce many mutants within one
-place in the source code for each mutation. Concrete operators or can be 
-filtered using the configuration file described in the data layer section.
-
 Once generated, mutants can be checked to see if they are valid. It's possible
 to run the Move compiler to check if the mutant is valid, as some of the
 mutations can create mutants that cannot be compiled properly.
@@ -162,46 +157,6 @@ mutants should be rejected.
 There is additional behaviour:
 - mutator tries to return at least one mutant per file,
 - mutator tries to return at least one mutant per mutation operator.
-
-### Data layer
-
-This layer handles data sources - reading Move projects (source code) and
-configuration files. It also provides data to the other layers.
-
-The configuration file is a JSON or TOML (both supported) file that contains
-the configuration of the Move mutator tool. It includes information on the
-project to mutate, mutation operators to use, and so on.
-
-Sample configuration file:
-```json
-{
-    "project": {
-        "path": "path/to/project",
-        "files": [
-            "path/to/file1",
-            "path/to/file2"
-        ]
-    },
-    "mutation": {
-        "operators": [
-            "binary_operator_replacement",
-            "unary_operator_replacement"
-        ]
-    }
-}
-```
-
-```toml
-[project]
-move_sources = ["/path/to/move/source"]
-mutate_modules = {"Selected" = ["module1", "module2"]}      # Alternative: mutate_modules = "All"
-[mutation]
-operators = ["operator1", "operator2"]
-[[individual]]
-file = "/path/to/file"
-verify_mutants = true
-include_functions = ["function1", "function2"]
-```
 
 ### Cross layer
 
@@ -231,7 +186,6 @@ the proving process as it is not the goal of the tool.
 The specification verification tool placed inside the `move-spec-test` tool,
 which does the following:
 1. Takes arguments both for the Move Prover tool and for the Move mutator tool.
-It can also read the configuration from the JSON configuration file.
 2. Run the Move mutator tool (`mutate`) to generate mutants with the previously
 specified parameters.
 3. Run the Move Prover tool, passing the generated mutants one by one.

@@ -64,7 +64,9 @@ pub fn run_mutation_test(
     benchmarks.total_tool_duration.start();
 
     // Run original tests to ensure the original tests are working:
+    benchmarks.executing_original_package.start();
     run_tests_on_original_code(test_config, &package_path)?;
+    benchmarks.executing_original_package.stop();
 
     // Create mutants:
     let outdir_mutant = if let Some(mutant_path) = &options.use_generated_mutants {
@@ -74,6 +76,7 @@ pub fn run_mutation_test(
         let mutator_config = BuildConfig {
             dev_mode: test_config.move_pkg.dev,
             additional_named_addresses: test_config.move_pkg.named_addresses(),
+            full_model_generation: test_config.move_pkg.check_test_code,
             // No need to fetch latest deps again.
             skip_fetch_latest_git_deps: true,
             compiler_config: test_config.compiler_config(),
@@ -104,15 +107,17 @@ pub fn run_mutation_test(
     let mut mini_reports = Vec::<MiniReport>::with_capacity(mutants.len());
     //  Split mutants into chunks before applying rayon threads, as trying to process them all in
     //  one go can lead to memory starvation if the number of mutants is too huge to handle.
-    mutants.chunks(64).for_each(|mutant_set| {
+    const CHUNK_SIZE: usize = 64;
+    let mut chunk_iter = 0;
+    mutants.chunks(CHUNK_SIZE).for_each(|mutant_set| {
         let (mut benchmarks, mut reports) = mutant_set
             .into_par_iter()
             .map(|elem| {
                 let mut benchmark = Benchmark::new();
 
                 let mutant_file = elem.mutant_path();
-                let rayon_tid =
-                    rayon::current_thread_index().expect("failed to fetch rayon thread id");
+                // In case the number of mutants is very low, a single thread might be used.
+                let rayon_tid = rayon::current_thread_index().unwrap_or(0);
                 info!(
                     "job_{rayon_tid}: Running tests for mutant {}",
                     mutant_file.display()
@@ -165,6 +170,12 @@ pub fn run_mutation_test(
             .into_iter()
             .unzip();
 
+        chunk_iter += 1;
+        info!(
+            "update: finished running tests for {} mutants",
+            chunk_iter * CHUNK_SIZE
+        );
+
         mutation_test_benchmarks.append(&mut benchmarks);
         mini_reports.append(&mut reports);
     });
@@ -190,8 +201,6 @@ pub fn run_mutation_test(
         }
     }
 
-    println!("\nTotal mutants tested: {}", test_report.mutants_tested());
-    println!("Total mutants killed: {}\n", test_report.mutants_killed());
     test_report.print_table();
 
     benchmarks.total_tool_duration.stop();
@@ -215,16 +224,12 @@ fn run_mutator(
     outdir: &Path,
 ) -> anyhow::Result<PathBuf> {
     debug!("Running the move mutator tool");
-    let mut mutator_conf = cli::create_mutator_options(options, apply_coverage);
-
-    let outdir_mutant = if let Some(path) = cli::check_mutator_output_path(&mutator_conf) {
-        path
-    } else {
-        mutator_conf.out_mutant_dir = Some(outdir.join("mutants"));
-        mutator_conf.out_mutant_dir.clone().unwrap()
-    };
-
+    let outdir_mutant = outdir.join("mutants");
     fs::create_dir_all(&outdir_mutant)?;
+
+    let mut mutator_conf = cli::create_mutator_options(options, apply_coverage);
+    mutator_conf.out_mutant_dir = Some(outdir_mutant.clone());
+
     move_mutator::run_move_mutator(mutator_conf, config, package_path)?;
 
     Ok(outdir_mutant)

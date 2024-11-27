@@ -17,13 +17,13 @@ use std::{
 /// according to its relative path inside the package. If the file is not inside any package,
 /// it creates the directory structure in the output directory.
 /// Example:
-/// The file to be mutated is located in "/a/b/c/sources/X/Y/file.move" (`file_path`).
+/// The file to be mutated is located in "/a/b/c/sources/X/Y/file.move" (`original_file`).
 /// This function constructs the following output path for file.move:
 /// "`output_dir/X/Y/file_index.move`"
 /// It finds the package root for the file, which is "/a/b/c", then it append the relative path to the output directory.
 ///
 /// If the file is not inside any package, it creates the directory structure in the output directory like:
-/// The file to be mutated is located in "/a/b/c/file.move" (`file_path`).
+/// The file to be mutated is located in "/a/b/c/file.move" (`original_file`).
 /// This function constructs the following output path for file.move:
 /// "`output_dir/file_index.move`"
 ///
@@ -39,10 +39,14 @@ use std::{
 /// # Returns
 ///
 /// * `PathBuf` - The path to the mutant.
-pub(crate) fn setup_mutant_path(output_dir: &Path, file_path: &Path) -> anyhow::Result<PathBuf> {
-    trace!("Trying to set up mutant path for {file_path:?}");
+pub(crate) fn setup_mutant_path(
+    output_dir: &Path,
+    original_file: &Path,
+    unique_mutant_id: u64,
+) -> anyhow::Result<PathBuf> {
+    trace!("Trying to set up mutant path for {original_file:?}");
 
-    let file_path_canonicalized = file_path.canonicalize()?;
+    let file_path_canonicalized = original_file.canonicalize()?;
 
     // Try to find package root for the file. If the file is not inside any package, assume that it is a single file.
     let root = SourcePackageLayout::try_find_root(&file_path_canonicalized);
@@ -66,31 +70,21 @@ pub(crate) fn setup_mutant_path(output_dir: &Path, file_path: &Path) -> anyhow::
     if let Err(e) = fs::create_dir_all(&output_struct) {
         if e.kind() != std::io::ErrorKind::AlreadyExists {
             return Err(anyhow::anyhow!(
-                "Cannot create directory structure for {file_path:?} in {output_dir:?}"
+                "Cannot create directory structure for {original_file:?} in {output_dir:?}"
             ));
         }
     }
 
-    let filename = file_path
+    let filename = original_file
         .file_stem()
-        .ok_or(anyhow::anyhow!("Cannot get file stem of {file_path:?}"))?;
+        .ok_or(anyhow::anyhow!("Cannot get file stem of {original_file:?}"))?;
 
     // Deal with the file as OsString to avoid problems with non-UTF8 characters.
-    let filename = filename.to_os_string();
-    for i in 0u32..u32::MAX {
-        let mut mutant_path = filename.clone();
-        mutant_path.push(OsString::from(format!("_mut{i}.move")));
+    let mut mutant_path = filename.to_os_string();
+    mutant_path.push(OsString::from(format!("_mutant_{unique_mutant_id:x}.move")));
 
-        let mutant_path = output_struct.join(mutant_path);
-        if !mutant_path.exists() {
-            return Ok(mutant_path);
-        }
-    }
-
-    Err(anyhow::anyhow!(
-        "There is more than {} mutants in {output_dir:?}",
-        u32::MAX
-    ))
+    let mutant_path = output_struct.join(mutant_path);
+    Ok(mutant_path)
 }
 
 /// Sets up the output directory for the mutants.
@@ -121,7 +115,7 @@ pub(crate) fn setup_output_dir(mutator_configuration: &Configuration) -> anyhow:
     let _ = fs::remove_dir_all(&output_dir);
     fs::create_dir(&output_dir)?;
 
-    debug!("Output directory set to: {output_dir:?}");
+    info!("Output directory set to: {output_dir:?}");
 
     Ok(output_dir)
 }
@@ -140,14 +134,16 @@ mod tests {
     fn setup_mutant_path_handles_non_utf8_characters() {
         let output_dir = Path::new("mutants_output");
         let filename = Path::new("💖");
+        let mutant_id = 0;
+
         fs::File::create(filename).unwrap();
-        let result = setup_mutant_path(output_dir, filename);
+        let result = setup_mutant_path(output_dir, filename, mutant_id);
         fs::remove_file(filename).unwrap();
         fs::remove_dir_all(output_dir).unwrap();
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
-            PathBuf::from("mutants_output/💖_mut0.move")
+            PathBuf::from(format!("mutants_output/💖_mutant_{mutant_id}.move"))
         );
     }
 
@@ -155,14 +151,18 @@ mod tests {
     fn setup_mutant_path_handles_file_without_extension() {
         let output_dir = Path::new("mutants_output_no_extension");
         let filename = Path::new("file1");
+        let mutant_id = 0;
+
         fs::File::create(filename).unwrap();
-        let result = setup_mutant_path(output_dir, filename);
+        let result = setup_mutant_path(output_dir, filename, mutant_id);
         fs::remove_file(filename).unwrap();
         fs::remove_dir_all(output_dir).unwrap();
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
-            PathBuf::from("mutants_output_no_extension/file1_mut0.move")
+            PathBuf::from(format!(
+                "mutants_output_no_extension/file1_mutant_{mutant_id}.move"
+            ))
         );
     }
 
@@ -170,14 +170,18 @@ mod tests {
     fn setup_mutant_path_creates_correct_path() {
         let output_dir = Path::new("mutants_output_correct");
         let filename = Path::new("test_correct");
+        let mutant_id = 0;
+
         fs::File::create(filename).unwrap();
-        let result = setup_mutant_path(output_dir, filename);
+        let result = setup_mutant_path(output_dir, filename, mutant_id);
         fs::remove_file(filename).unwrap();
         fs::remove_dir_all(output_dir).unwrap();
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
-            PathBuf::from("mutants_output_correct/test_correct_mut0.move")
+            PathBuf::from(format!(
+                "mutants_output_correct/test_correct_mutant_{mutant_id}.move"
+            ))
         );
     }
 
@@ -185,18 +189,25 @@ mod tests {
     fn setup_mutant_path_handles_empty_output_dir() {
         let output_dir = Path::new("");
         let filename = Path::new("test_empty");
+        let mutant_id = 0;
+
         fs::File::create(filename).unwrap();
-        let result = setup_mutant_path(output_dir, filename);
+        let result = setup_mutant_path(output_dir, filename, mutant_id);
         fs::remove_file(filename).unwrap();
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), PathBuf::from("test_empty_mut0.move"));
+        assert_eq!(
+            result.unwrap(),
+            PathBuf::from(format!("test_empty_mutant_{mutant_id}.move"))
+        );
     }
 
     #[test]
     fn setup_mutant_path_handles_empty_filename() {
         let output_dir = Path::new("mutants_output_empty_filename");
         let filename = Path::new("");
-        let result = setup_mutant_path(output_dir, filename);
+        let mutant_id = 0;
+
+        let result = setup_mutant_path(output_dir, filename, mutant_id);
         assert!(result.is_err());
     }
 

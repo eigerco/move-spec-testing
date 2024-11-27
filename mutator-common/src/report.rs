@@ -165,7 +165,7 @@ impl Report {
                 };
 
                 builder.push_record([
-                    format!("{}::{}", path.display(), stat.module_func.clone()),
+                    format!("{}::{}", path.display(), stat.module_func),
                     stat.tested.to_string(),
                     stat.killed.to_string(),
                     format!("{percentage:.2}%"),
@@ -175,7 +175,10 @@ impl Report {
 
         let table = builder.build().with(Style::modern_rounded()).to_string();
 
-        println!("{table}\n\n");
+        println!("{table}");
+        println!("Total mutants tested: {}", self.mutants_tested());
+        println!("Total mutants killed: {}", self.mutants_killed());
+        println!(); // Empty line before the end
     }
 
     // Internal function to increment the chosen stat.

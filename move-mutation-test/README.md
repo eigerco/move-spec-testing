@@ -41,14 +41,11 @@ cargo nextest run -r -p move-mutation-test
 
 To start the mutation test, run the following command from the repo directory:
 ```bash
-./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt
+./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt
 ```
 The above command will store the report in a file `report.txt`.
 A shortened sample output for the above command will look as follows:
 ```text
-Total mutants tested: 229
-Total mutants killed: 203
-
 ╭────────────────────────────────────────────────┬────────────────┬────────────────┬────────────╮
 │ Module                                         │ Mutants tested │ Mutants killed │ Percentage │
 ├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
@@ -66,11 +63,13 @@ Total mutants killed: 203
 ├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
 │ sources/Sum.move::Sum::sum                     │ 4              │ 4              │ 100.00%    │
 ╰────────────────────────────────────────────────┴────────────────┴────────────────┴────────────╯
+Total mutants tested: 229
+Total mutants killed: 203
 ```
 
 The sample `report.txt` generated for the above command contains useful info that can be paired with the `display-report` option:
 ```bash
-$ move-mutation-test display-report coverage -p report.txt --modules Sum
+$ ./target/release/move-mutation-test display-report coverage --path-to-report report.txt --modules Sum
 The legend is shown below in the table format
 ===================================┬==================================
  mutants killed / mutants in total │ Source code file path
@@ -134,21 +133,21 @@ _In below examples, the `RUST_LOG` flag is used to provide a more informative ou
 
 To use the tool on only the `Operators` module for the project `simple`, run:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-modules Operators
-./target/release/move-mutation-test display-report coverage -p report.txt --modules Operators
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt --move-2 --mutate-modules Operators
+./target/release/move-mutation-test display-report coverage --path-to-report report.txt --modules Operators
 ```
 ------------------------------------------------------------------------------------------------------------
 To use the tool only on functions called `sum` for the project `simple`, run:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-functions sum
-./target/release/move-mutation-test display-report coverage -p report.txt --modules Operators,Sum
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt --move-2 --mutate-functions sum
+./target/release/move-mutation-test display-report coverage --path-to-report report.txt --modules Operators,Sum
 ```
 In the output for the above command, the tool will mutate both the `Operators::sum` and `Sum::sum` functions.
 
 If the user wants to mutate only the `sum` function in the `Sum` module, the user can use this command:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-functions sum --mutate-modules Sum
-./target/release/move-mutation-test display-report coverage -p report.txt --modules Sum
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt --move-2 --mutate-functions sum --mutate-modules Sum
+./target/release/move-mutation-test display-report coverage --path-to-report report.txt --modules Sum
 ```
 
 [nextest]: https://github.com/nextest-rs/nextest

@@ -3,10 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use fs_extra::dir::CopyOptions;
-use move_mutator::{
-    cli::{CLIOptions, ModuleFilter},
-    configuration::FunctionFilter,
-};
+use move_mutator::cli::{CLIOptions, FunctionFilter, ModuleFilter};
 use move_package::BuildConfig;
 use std::{fs, path::PathBuf};
 use tempfile::tempdir;

@@ -6,7 +6,7 @@
 use anyhow::Result;
 use fs_extra::dir::CopyOptions;
 use log::{info, trace};
-use move_package::source_package::layout::SourcePackageLayout;
+use move_package::source_package::{layout::SourcePackageLayout, manifest_parser};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -30,7 +30,7 @@ pub fn setup_outdir_and_package_path<P: AsRef<Path>>(
     let options = CopyOptions::new().content_only(true);
     fs_extra::dir::copy(&package_path, &new_package_path, &options)?;
 
-    move_mutator::compiler::rewrite_manifest_for_mutant(&package_path, &new_package_path)?;
+    rewrite_manifest_to_use_abs_paths(&package_path, &new_package_path)?;
 
     // Since the tool will copy the original package often, remove unnecessary files.
     let remove_item = |item_name: &str| {
@@ -69,4 +69,52 @@ pub fn strip_path_prefix<P: AsRef<Path>>(path: P) -> Result<PathBuf> {
         + 1; // skip the `/` character before 'sources'.
 
     Ok(PathBuf::from(&original_file[sources_dir_idx..]))
+}
+
+/// Rewrite the manifest file to use absolute paths.
+///
+/// # Arguments
+///
+/// * `root` - the path to the package root.
+/// * `tempdir` - the path to the temporary directory.
+///
+/// # Errors
+///
+/// * If any error occurs during the rewrite, the appropriate error is returned using anyhow.
+///
+/// # Panics
+///
+/// This function panics if dependency paths contain no Unicode characters.
+///
+/// # Returns
+///
+/// * `Result<(), anyhow::Error>` - Ok if the rewrite is successful, or an error if any error occurs.
+fn rewrite_manifest_to_use_abs_paths(root: &Path, tempdir: &Path) -> Result<(), anyhow::Error> {
+    let mut manifest_string = fs::read_to_string(root.join(SourcePackageLayout::Manifest.path()))?;
+    let manifest = manifest_parser::parse_move_manifest_string(manifest_string.clone())?;
+    let manifest = manifest_parser::parse_source_manifest(manifest)?;
+    let curdir = std::env::current_dir()?;
+
+    // We need to switch to package dir as paths in manifest are relative to package dir.
+    std::env::set_current_dir(root)?;
+
+    manifest
+        .dependencies
+        .values()
+        .chain(manifest.dev_dependencies.values())
+        .for_each(|dep| {
+            let dep_canon = dep.local.canonicalize();
+            if let Ok(dep_canon) = dep_canon {
+                manifest_string = manifest_string
+                    .replace(dep.local.to_str().unwrap(), dep_canon.to_str().unwrap());
+            }
+        });
+
+    // Switch back to the original dir.
+    std::env::set_current_dir(curdir)?;
+    fs::write(
+        tempdir.join(SourcePackageLayout::Manifest.path()),
+        manifest_string,
+    )?;
+    Ok(())
 }

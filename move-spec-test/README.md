@@ -51,15 +51,12 @@ the Move Specification Test tool should work as well.
 
 To check if Move Specification Test tool works, run the following command:
 ```bash
-./target/release/move-spec-test run -p move-mutator/tests/move-assets/same_names
+./target/release/move-spec-test run --package-dir move-mutator/tests/move-assets/same_names
 ```
 
 There should be output generated similar to the following (there may also be
 some additional Prover logs visible):
 ```text
-Total mutants tested: 4
-Total mutants killed: 4
-
 ╭────────────────────────────────────────────────┬────────────────┬────────────────┬────────────╮
 │ Module                                         │ Mutants tested │ Mutants killed │ Percentage │
 ├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
@@ -71,6 +68,8 @@ Total mutants killed: 4
 ├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
 │ sources/Negation.move::Negation_main           │ 1              │ 1              │ 100.00%    │
 ╰────────────────────────────────────────────────┴────────────────┴────────────────┴────────────╯
+Total mutants tested: 4
+Total mutants killed: 4
 ```
 
 The specification testing tool respects `RUST_LOG` variable, and it will print
@@ -78,9 +77,9 @@ out as much information as the variable allows. There is possibility to enable
 logging only for the specific modules. Please refer to the [env_logger](https://docs.rs/env_logger/latest/env_logger/)
 documentation for more details.
 
-To generate a report, use the `-o` option:
+To generate a report, use the `--output` option:
 ```bash
-./target/release/move-spec-test run -p move-mutator/tests/move-assets/poor_spec -o report.txt
+./target/release/move-spec-test run --package-dir move-mutator/tests/move-assets/poor_spec --output report.txt
 ```
 
 The sample `report.txt` generated for the above command contains useful info that can be paired with the `display-report` option:
@@ -119,7 +118,7 @@ The legend is shown below in the table format
 You can try to run the tool using other examples from the `move-mutator`
 tests like:
 ```bash
-./target/release/move-spec-test run -p move-mutator/tests/move-assets/simple
+./target/release/move-spec-test run --package-dir move-mutator/tests/move-assets/simple
 ```
 
 You should see different results for different modules as it depends on the

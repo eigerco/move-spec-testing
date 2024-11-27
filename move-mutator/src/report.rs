@@ -115,7 +115,7 @@ impl Default for Report {
 
 /// The `Range` struct represents a range with a start and end.
 /// It is used to represent the location of a mutation inside the source file.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Hash)]
 pub struct Range {
     /// The start of the range.
     start: usize,
@@ -139,7 +139,7 @@ impl Range {
 ///
 /// It contains the location of the modification, the name of the mutation operator, the old value and the new value.
 /// It is used to represent a single modification inside a `ReportEntry`.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash)]
 pub struct Mutation {
     /// The location of the modification.
     changed_place: Range,

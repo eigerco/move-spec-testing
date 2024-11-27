@@ -25,9 +25,13 @@ use crate::{
     report::{MutationReport, Report},
 };
 use move_package::BuildConfig;
+use mutator_common::tmp_package_dir::setup_outdir_and_package_path;
 use rand::{seq::SliceRandom, thread_rng};
 use rayon::prelude::*;
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// Runs the Move mutator tool.
 /// Entry point for the Move mutator tool both for the CLI and the Rust API.
@@ -61,11 +65,16 @@ pub fn run_move_mutator(
         "Executed move-mutator with the following options: {options:?} \n config: {config:?} \n package path: {package_path:?}"
     );
 
-    // Load configuration from file or create a new one.
-    let mut mutator_configuration = match options.configuration_file {
-        Some(path) => Configuration::from_file(path.as_path())?,
-        None => Configuration::new(options, Some(package_path.to_owned())),
+    // Setup output dir and clone package path there.
+    let original_package_path = package_path.canonicalize()?;
+    let (_, package_path) = if options.move_sources.is_empty() {
+        setup_outdir_and_package_path(&original_package_path)?
+    } else {
+        (PathBuf::new(), package_path.to_owned())
     };
+
+    let mut mutator_configuration =
+        Configuration::new(options, Some(original_package_path.to_owned()));
 
     trace!("Mutator configuration: {mutator_configuration:?}");
 
@@ -80,6 +89,7 @@ pub fn run_move_mutator(
     // For the next compilation steps, we don't need to fetch git deps again.
     let mut config = config.clone();
     config.skip_fetch_latest_git_deps = true;
+    config.compiler_config.skip_attribute_checks = true;
 
     if mutator_configuration.project.apply_coverage {
         // This implies additional compilation inside.
@@ -122,8 +132,6 @@ pub fn run_move_mutator(
 
     // If the downsample ratio is set, we need to downsample the mutants.
     if let Some(percentage) = mutator_configuration.project.downsampling_ratio_percentage {
-        //TODO: currently we are downsampling the mutants after they are generated. This is not
-        // ideal as we are generating all mutants and then removing some of them.
         let total_mutants = transformed_mutants.len();
 
         let no_of_mutants_to_keep =
@@ -143,22 +151,12 @@ pub fn run_move_mutator(
 
     let mutation_reports: Vec<MutationReport> = transformed_mutants
         .into_par_iter()
-        .filter(|(mutated_info, _fn, _module, _path, _orig_src)| {
-            let Some(conf) = &mutator_configuration.mutation else {
-                return true;
-            };
-            if conf.operators.is_empty() {
-                return true;
-            }
-
-            conf.operators
-                .contains(&mutated_info.mutation.get_operator_name().to_owned())
-        })
         .map(|(mutated_info, function, module, path, original_source)| {
             // An informative description for the mutant.
             let mutant = format!("{module}::{function}: {:?}", mutated_info.mutation);
 
-            let rayon_tid = rayon::current_thread_index().expect("fetching rayon thread id failed");
+            // In case the number of mutants is very low, a single thread might be used.
+            let rayon_tid = rayon::current_thread_index().unwrap_or(0);
             info!("job_{rayon_tid}: Checking mutant {mutant}");
 
             if mutator_configuration.project.verify_mutants {
@@ -171,7 +169,8 @@ pub fn run_move_mutator(
                 }
             }
 
-            let Ok(mutant_path) = output::setup_mutant_path(&output_dir, &path) else {
+            let mutant_id = mutated_info.unique_id();
+            let Ok(mutant_path) = output::setup_mutant_path(&output_dir, &path, mutant_id) else {
                 // If we cannot set up the mutant path, we skip the mutant.
                 trace!("Cannot set up mutant path for {path:?}");
                 return None;
