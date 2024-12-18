@@ -4,7 +4,7 @@
 
 use crate::{
     cli,
-    configuration::{Configuration, FunctionFilter},
+    configuration::Configuration,
     mutant::Mutant,
     operator::MutationOp,
     operators::{
@@ -134,15 +134,8 @@ fn traverse_function(
 
     let mut included_funcs = vec![];
 
-    // Check if any function is included in an individual configuration.
-    let filename = function.module_env.get_source_path();
-    if let Some(ind) = conf.get_file_configuration(Path::new(filename)) {
-        if let FunctionFilter::Selected(funcs) = &ind.mutate_functions {
-            included_funcs = funcs.iter().collect();
-        }
-    }
     // Check if any function is included in the general project configuration.
-    if let FunctionFilter::Selected(funcs) = &conf.project.mutate_functions {
+    if let cli::FunctionFilter::Selected(funcs) = &conf.project.mutate_functions {
         included_funcs = included_funcs.into_iter().chain(funcs.iter()).collect();
     }
 

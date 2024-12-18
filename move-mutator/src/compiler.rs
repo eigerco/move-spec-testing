@@ -5,6 +5,7 @@
 use crate::configuration::Configuration;
 use codespan_reporting::diagnostic::Severity;
 use either::Either;
+use fs_extra::dir::CopyOptions;
 use itertools::Itertools;
 use move_command_line_common::{address::NumericalAddress, parser::NumberFormat};
 use move_compiler::{attr_derivation, shared::Flags};
@@ -13,11 +14,11 @@ use move_model::model::GlobalEnv;
 use move_package::{
     compilation::compiled_package::{make_source_and_deps_for_compiler, CompiledPackage},
     resolution::resolution_graph::ResolvedTable,
-    source_package::{layout::SourcePackageLayout, manifest_parser},
+    source_package::layout::SourcePackageLayout,
     BuildConfig,
 };
 use move_symbol_pool::Symbol;
-use std::{collections::BTreeMap, fs, io, path::Path};
+use std::{collections::BTreeMap, path::Path};
 
 /// Generate the AST from the Move sources.
 ///
@@ -312,13 +313,11 @@ pub fn verify_mutant(
     // Copy the whole package to the tempdir.
     // We need to copy the whole package because the Move compiler needs to find the Move.toml file and all the dependencies
     // as we don't know which files are needed for the compilation.
-    copy_dir_all(&root, tempdir.path())?;
+    let options = CopyOptions::new().content_only(true);
+    fs_extra::dir::copy(&root, &tempdir, &options)?;
 
     // Write the mutated source to the tempdir in place of the original file.
     std::fs::write(tempdir.path().join(relative_path), mutated_source)?;
-
-    // Rewrite the manifest file to use absolute paths
-    rewrite_manifest_for_mutant(&root, tempdir.path())?;
 
     debug!(
         "Mutated source written to {:?}",
@@ -355,112 +354,4 @@ pub(crate) fn compile_package(
     );
 
     Ok(compiled_package)
-}
-
-/// Rewrite the manifest file to use absolute paths.
-///
-/// # Arguments
-///
-/// * `root` - the path to the package root.
-/// * `tempdir` - the path to the temporary directory.
-///
-/// # Errors
-///
-/// * If any error occurs during the rewrite, the appropriate error is returned using anyhow.
-///
-/// # Panics
-///
-/// This function panics if dependency paths contain no Unicode characters.
-///
-/// # Returns
-///
-/// * `Result<(), anyhow::Error>` - Ok if the rewrite is successful, or an error if any error occurs.
-pub fn rewrite_manifest_for_mutant(root: &Path, tempdir: &Path) -> Result<(), anyhow::Error> {
-    let mut manifest_string = fs::read_to_string(root.join(SourcePackageLayout::Manifest.path()))?;
-    let manifest = manifest_parser::parse_move_manifest_string(manifest_string.clone())?;
-    let manifest = manifest_parser::parse_source_manifest(manifest)?;
-    let curdir = std::env::current_dir()?;
-
-    // We need to switch to package dir as paths in manifest are relative to package dir.
-    std::env::set_current_dir(root)?;
-
-    manifest
-        .dependencies
-        .values()
-        .chain(manifest.dev_dependencies.values())
-        .for_each(|dep| {
-            let dep_canon = dep.local.canonicalize();
-            if let Ok(dep_canon) = dep_canon {
-                manifest_string = manifest_string
-                    .replace(dep.local.to_str().unwrap(), dep_canon.to_str().unwrap());
-            }
-        });
-
-    // Switch back to the original dir.
-    std::env::set_current_dir(curdir)?;
-    fs::write(
-        tempdir.join(SourcePackageLayout::Manifest.path()),
-        manifest_string,
-    )?;
-    Ok(())
-}
-
-/// Copies all files and directories from the source directory to the destination directory.
-///
-/// # Arguments
-///
-/// * `src` - the source directory.
-/// * `dst` - the destination directory.
-///
-/// # Errors
-/// * If any error occurs during the copy, the appropriate IO error is returned.
-///
-/// # Returns
-///
-/// * `io::Result<()>` - Ok if the copy is successful, or an error if any error occurs.
-pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
-    if !dst.as_ref().exists() {
-        fs::create_dir_all(dst.as_ref())?;
-    }
-
-    for entry in fs::read_dir(src)? {
-        let entry = entry?;
-        if entry.file_type()?.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        } else {
-            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        }
-    }
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use tempfile::tempdir;
-
-    #[test]
-    fn copy_dir_all_copies_all_files_and_directories() {
-        let temp_dir = tempdir().unwrap();
-        let src_dir = temp_dir.path().join("src");
-        let dst_dir = temp_dir.path().join("dst");
-
-        fs::create_dir_all(&src_dir).unwrap();
-        fs::write(src_dir.join("file.txt"), "Hello, world!").unwrap();
-
-        let result = copy_dir_all(&src_dir, &dst_dir);
-        assert!(result.is_ok());
-        assert!(dst_dir.join("file.txt").exists());
-    }
-
-    #[test]
-    fn copy_dir_all_errors_if_source_does_not_exist() {
-        let temp_dir = tempdir().unwrap();
-        let src_dir = temp_dir.path().join("non_existent_src");
-        let dst_dir = temp_dir.path().join("dst");
-
-        let result = copy_dir_all(src_dir, dst_dir);
-        assert!(result.is_err());
-    }
 }

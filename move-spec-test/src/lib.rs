@@ -69,7 +69,9 @@ pub fn run_spec_test(
 
     let mut error_writer = termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto);
 
+    benchmarks.executing_original_package.start();
     let result = prove(config, &package_path, &prover_conf, &mut error_writer);
+    benchmarks.executing_original_package.stop();
 
     if let Err(e) = result {
         let msg = format!("Original code verification failed! Prover failed with error: {e}");
@@ -103,7 +105,8 @@ pub fn run_spec_test(
             let mut benchmark = Benchmark::new();
 
             let mutant_file = elem.mutant_path();
-            let rayon_tid = rayon::current_thread_index().expect("failed to fetch rayon thread id");
+            // In case the number of mutants is very low, a single thread might be used.
+            let rayon_tid = rayon::current_thread_index().unwrap_or(0);
             info!(
                 "job_{rayon_tid}: Running prover for mutant {}",
                 mutant_file.display()
@@ -175,8 +178,6 @@ pub fn run_spec_test(
         }
     }
 
-    println!("\nTotal mutants tested: {}", test_report.mutants_tested());
-    println!("Total mutants killed: {}\n", test_report.mutants_killed());
     test_report.print_table();
 
     benchmarks.total_tool_duration.stop();
@@ -199,16 +200,12 @@ fn run_mutator(
     outdir: &Path,
 ) -> anyhow::Result<PathBuf> {
     debug!("Running the move mutator tool");
-    let mut mutator_conf = cli::create_mutator_options(options);
-
-    let outdir_mutant = if let Some(path) = cli::check_mutator_output_path(&mutator_conf) {
-        path
-    } else {
-        mutator_conf.out_mutant_dir = Some(outdir.join("mutants"));
-        mutator_conf.out_mutant_dir.clone().unwrap()
-    };
-
+    let outdir_mutant = outdir.join("mutants");
     fs::create_dir_all(&outdir_mutant)?;
+
+    let mut mutator_conf = cli::create_mutator_options(options);
+    mutator_conf.out_mutant_dir = Some(outdir_mutant.clone());
+
     move_mutator::run_move_mutator(mutator_conf, config, package_path)?;
 
     Ok(outdir_mutant)

@@ -9,9 +9,7 @@ use move_mutation_test::{
     cli::{CLIOptions, TestBuildConfig},
     run_mutation_test,
 };
-use mutator_common::display_report::{
-    display_coverage_on_screen, display_mutants_on_screen, DisplayReportCmd, DisplayReportOptions,
-};
+use mutator_common::display_report::DisplayReportOptions;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -46,16 +44,6 @@ fn main() -> anyhow::Result<()> {
             cli_options,
             test_build_config,
         } => run_mutation_test(cli_options, test_build_config),
-        Commands::DisplayReport(display_report) => {
-            let path_to_report = &display_report.path_to_report;
-            let modules = &display_report.modules;
-
-            match &display_report.cmds {
-                DisplayReportCmd::Coverage => display_coverage_on_screen(path_to_report, modules),
-                DisplayReportCmd::Mutants { functions, mutants } => {
-                    display_mutants_on_screen(path_to_report, modules, functions, mutants)
-                },
-            }
-        },
+        Commands::DisplayReport(display_report) => display_report.execute(),
     }
 }

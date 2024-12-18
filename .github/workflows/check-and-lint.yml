@@ -2,7 +2,7 @@ name: Basic check and lint
 
 on:
   push:
-    branches: [ main, develop-m3, develop-m4 ]
+    branches: [ main ]
     paths:
       - Cargo.toml
       - Cargo.lock
@@ -11,7 +11,7 @@ on:
       - move-mutation-test/**
       - .github/workflows/check-and-lint.yml
   pull_request:
-    branches: [ main, develop-m3, develop-m4 ]
+    branches: [ main ]
     paths:
       - Cargo.toml
       - Cargo.lock

@@ -61,23 +61,19 @@ $ cargo install --git https://github.com/eigerco/move-spec-testing.git --locked 
 $ RUSTFLAGS="--cfg tokio_unstable" cargo install --git https://github.com/eigerco/move-spec-testing.git --locked move-mutation-test
 ```
 
+Note: we don't recommend using the `debug` build since this tool is very resource-intensive. For any development purposes, we recommend using the `release` mode only.
+
 That will install the tools into `~/.cargo/bin` directory (at least on MacOS and Linux).
 Ensure to have this path in your `PATH` environment. This step can be done with the below command.
 ```bash
 $ export PATH=~/.cargo/bin:$PATH
 ```
 
-To uninstall tools, run:
-```bash
-$ cargo uninstall move-mutator
-$ cargo uninstall move-spec-test
-$ cargo uninstall move-mutation-test
-```
-
 ## Usage
 
 The basic tool overview is shown in the below chapters. To dive more deeply into each tool, please check out the documentation here:
 
+ - [`How to use guide`](docs/How-to-use.md)
  - [`move-mutator` documentation](move-mutator/README.md)
  - [`move-spec-test` documentation](move-spec-test/README.md)
  - [`move-mutation-test` documentation](move-mutation-test/README.md)
@@ -88,19 +84,79 @@ Please refer to the [env_logger](https://docs.rs/env_logger/latest/env_logger/) 
 
 _To run these tools, example projects shall be used that are provided [here](https://github.com/eigerco/move-spec-testing/tree/main/move-mutator/tests/move-assets)._
 
+#### Move Mutation Tester
+
+To start mutation test, run the following command from the repo directory:
+```bash
+$ move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt
+```
+A shortened sample output for the above command will look as follows:
+```text
+╭────────────────────────────────────────────────┬────────────────┬────────────────┬────────────╮
+│ Module                                         │ Mutants tested │ Mutants killed │ Percentage │
+├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
+│ sources/Operators.move::Operators::and         │ 3              │ 2              │ 66.67%     │
+├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
+│ sources/Operators.move::Operators::div         │ 5              │ 5              │ 100.00%    │
+├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
+│ sources/Operators.move::Operators::eq          │ 5              │ 5              │ 100.00%    │
+├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
+│ sources/Operators.move::Operators::gt          │ 6              │ 6              │ 100.00%    │
+├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
+│ sources/StillSimple.move::StillSimple::sample6 │ 30             │ 30             │ 100.00%    │
+├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
+│ sources/Sum.move::Sum::sum                     │ 4              │ 4              │ 100.00%    │
+╰────────────────────────────────────────────────┴────────────────┴────────────────┴────────────╯
+Total mutants tested: 229
+Total mutants killed: 203
+```
+
+The sample `report.txt` generated for the above command contains useful info that can be paired with the `display-report` option:
+```bash
+$ move-mutation-test display-report coverage --path-to-report report.txt --modules Sum
+The legend is shown below in the table format
+===================================┬==================================
+ mutants killed / mutants in total │ Source code file path
+===================================┼==================================
+                  <examples below> │ <Line>
+                                   │
+                                   │ Line without any mutants
+                               6/8 │ Some mutants killed on this line
+                                   │ Another line without any mutants
+                             10/10 │ All mutants killed on this line
+                               0/4 │ No mutants killed on this line
+                                   │ One final line without mutants
+
+=====┬=======================================
+     │ sources/Sum.move
+=====┼=======================================
+     │ module TestAccount::Sum {
+     │     fun sum(x: u128, y: u128): u128 {
+ 4/4 │         let sum_r = x * y;
+     │
+     │         sum_r
+     │     }
+     │
+     │     #[test]
+     │     fun sum_test() {
+     │          assert!(sum(2, 2) == 4, 0);
+     │          assert!(sum(0, 5) == 5, 0);
+     │          assert!(sum(100, 0) == 100, 0);
+     │          assert!(sum(0, 0) == 0, 0);
+     │     }
+     │ }
+```
+
 #### Move Specification Test
 
 To start specification testing, run the following command from the repo directory:
 ```bash
-$ move-spec-test run -p move-mutator/tests/move-assets/same_names
+$ move-spec-test run --package-dir move-mutator/tests/move-assets/same_names
 ```
 
 The generated output should be very similar to the following (there may also be
 some additional _Prover_ logs visible):
 ```text
-Total mutants tested: 4
-Total mutants killed: 4
-
 ╭────────────────────────────────────────────────┬────────────────┬────────────────┬────────────╮
 │ Module                                         │ Mutants tested │ Mutants killed │ Percentage │
 ├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
@@ -112,17 +168,19 @@ Total mutants killed: 4
 ├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
 │ sources/Negation.move::Negation_main           │ 1              │ 1              │ 100.00%    │
 ╰────────────────────────────────────────────────┴────────────────┴────────────────┴────────────╯
+Total mutants tested: 4
+Total mutants killed: 4
 ```
 
 
-To generate a report, use the `-o` option:
+To generate a report, use the `--output` option:
 ```bash
-$ move-spec-test run -p move-mutator/tests/move-assets/poor_spec -o report.txt
+$ move-spec-test run --package-dir move-mutator/tests/move-assets/poor_spec --output report.txt
 ```
 
 The sample `report.txt` generated for the above command contains useful info that can be paired with the `display-report` option:
 ```bash
-$ ./target/release/move-spec-test display-report -p report.txt
+$ move-spec-test display-report coverage --path-to-report report.txt
 The legend is shown below in the table format
 ===================================┬==================================
  mutants killed / mutants in total │ Source code file path
@@ -153,80 +211,13 @@ The legend is shown below in the table format
      │ }
 ```
 
-#### Move Mutation Tester
-
-To start mutation test, run the following command from the repo directory:
-```bash
-$ move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt
-```
-A shortened sample output for the above command will look as follows:
-```text
-Total mutants tested: 229
-Total mutants killed: 203
-
-╭────────────────────────────────────────────────┬────────────────┬────────────────┬────────────╮
-│ Module                                         │ Mutants tested │ Mutants killed │ Percentage │
-├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
-│ sources/Operators.move::Operators::and         │ 3              │ 2              │ 66.67%     │
-├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
-│ sources/Operators.move::Operators::div         │ 5              │ 5              │ 100.00%    │
-├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
-│ sources/Operators.move::Operators::eq          │ 5              │ 5              │ 100.00%    │
-├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
-│ sources/Operators.move::Operators::gt          │ 6              │ 6              │ 100.00%    │
-├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
-│ sources/StillSimple.move::StillSimple::sample6 │ 30             │ 30             │ 100.00%    │
-├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
-│ sources/Sum.move::Sum::sum                     │ 4              │ 4              │ 100.00%    │
-╰────────────────────────────────────────────────┴────────────────┴────────────────┴────────────╯
-```
-
-The sample `report.txt` generated for the above command contains useful info that can be paired with the `display-report` option:
-```bash
-$ move-mutation-test display-report -p report.txt --modules Sum
-The legend is shown below in the table format
-===================================┬==================================
- mutants killed / mutants in total │ Source code file path
-===================================┼==================================
-                  <examples below> │ <Line>
-                                   │
-                                   │ Line without any mutants
-                               6/8 │ Some mutants killed on this line
-                                   │ Another line without any mutants
-                             10/10 │ All mutants killed on this line
-                               0/4 │ No mutants killed on this line
-                                   │ One final line without mutants
-
-=====┬=======================================
-     │ sources/Sum.move
-=====┼=======================================
-     │ module TestAccount::Sum {
-     │     fun sum(x: u128, y: u128): u128 {
- 4/4 │         let sum_r = x * y;
-     │         spec {
-     │                 assert sum_r == x+y;
-     │         };
-     │
-     │         sum_r
-     │     }
-     │
-     │     #[test]
-     │     fun sum_test() {
-     │          assert!(sum(2, 2) == 4, 0);
-     │          assert!(sum(0, 5) == 5, 0);
-     │          assert!(sum(100, 0) == 100, 0);
-     │          assert!(sum(0, 0) == 0, 0);
-     │     }
-     │ }
-```
-
 #### Move Mutator
 
 _Move Specification tool_ runs **Move Mutator** internally, however there is a possibility to run it manually.
 
 To generate mutants for all files within a test project (for the whole Move package), run:
 ```bash
-$ move-mutator -p move-mutator/tests/move-assets/simple/
+$ move-mutator --package-dir move-mutator/tests/move-assets/simple/
 ```
 By default, the output shall be stored in the `mutants_output` directory unless otherwise specified.
 
