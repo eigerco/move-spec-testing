@@ -2,7 +2,7 @@ name: Basic test run
 
 on:
   push:
-    branches: [ main, develop-m3, develop-m4 ]
+    branches: [ main ]
     paths:
       - Cargo.toml
       - Cargo.lock
@@ -11,7 +11,7 @@ on:
       - move-mutation-test/**
       - .github/workflows/run-tests.yml
   pull_request:
-    branches: [ main, develop-m3, develop-m4 ]
+    branches: [ main ]
     paths:
       - Cargo.toml
       - Cargo.lock
@@ -31,7 +31,27 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install required deps
-        run: sudo apt-get install libudev-dev libdw-dev lld
+        run: sudo apt-get install libudev-dev libdw-dev lld libpq-dev libssl-dev pkg-config lsof build-essential ca-certificates clang curl git --no-install-recommends --assume-yes
+
+      - name: Get aptos-core
+        shell: bash
+        run: git clone https://github.com/aptos-labs/aptos-core.git
+
+      - name: Install related tools and prover dependencies
+        shell: bash
+        run: aptos-core/scripts/dev_setup.sh -b -p -r -y -P -t -k
+
+      - name: Prepare move prover tooling.
+        shell: bash
+        run: |
+          echo 'Z3_EXE='/home/$USER/bin/z3 | tee -a $GITHUB_ENV
+          echo 'CVC5_EXE='/home/$USER/bin/cvc5 | tee -a $GITHUB_ENV
+          echo 'DOTNET_ROOT='/home/$USER/.dotnet/ | tee -a $GITHUB_ENV
+          echo 'BOOGIE_EXE='/home/$USER/.dotnet/tools/boogie | tee -a $GITHUB_ENV
+          echo 'MVP_TEST_ON_CI'='1' | tee -a $GITHUB_ENV
+          echo "/home/$USER/bin" | tee -a $GITHUB_PATH
+          echo "/home/$USER/.dotnet" | tee -a $GITHUB_PATH
+          echo "/home/$USER/.dotnet/tools" | tee -a $GITHUB_PATH
 
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -43,4 +63,4 @@ jobs:
         uses: taiki-e/install-action@nextest
 
       - name: Run normal tests in the release mode due to test duration speed bump.
-        run: cargo nextest run -r --profile ci -E 'not test(test_run_spec_test)'
+        run: cargo nextest run -r --profile ci

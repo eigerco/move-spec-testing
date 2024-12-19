@@ -1,8 +1,8 @@
-# Move Mutation Tester tool
+# Move Mutation Test Tool
 
 ## Summary
 
-The tool is used to test the quality of the test suite and the source code.
+The `move-mutation-test` tool is used to test the quality of the test suite and the source code.
 
 ## Overview
 
@@ -13,7 +13,7 @@ The program logic is quite simple, the tool works using the following principles
 
 If the mutants are not killed, it might indicate the quality of the test suite could be improved, or in some rare cases, it might indicate an error in the original source code.
 
-**Move Mutation Tester** tool can be used on Move packages (projects) which can compile successfully and have valid tests that are passing.
+**Move Mutation Test** tool can be used on Move packages (projects) which can compile successfully and have valid tests that are passing.
 Using filters, it is possible to run the tool only on certain mutants filtered by:
  - Module name (`--mutate-modules` argument)
  - Function name (`--mutate-functions` argument)
@@ -24,12 +24,27 @@ The tool generates a report in a JSON format. The report contains information
 about the number of mutants tested and killed and also the differences between
 the original and modified code.
 
-## Setup check
+## Install
 
-Build the whole repository first:
+To build the tools, run:
+```bash
+$ RUSTFLAGS="--cfg tokio_unstable" cargo install --git https://github.com/eigerco/move-spec-testing.git --locked move-mutation-test
+```
+
+That will install the tools into `~/.cargo/bin` directory (at least on MacOS and Linux).
+Ensure to have this path in your `PATH` environment. This step can be done with the below command.
+```bash
+$ export PATH=~/.cargo/bin:$PATH
+```
+
+### Development setup
+
+Please build the whole repository first:
 ```bash
 cargo build --release
 ```
+
+**Note:** _For any development purposes, we recommend using the `release` mode only. We don't recommend using the `debug` build since this tool is very resource-intensive._
 
 Check if the tool is working properly by running its tests via the [`nextest`][nextest] tool:
 ```bash
@@ -41,14 +56,11 @@ cargo nextest run -r -p move-mutation-test
 
 To start the mutation test, run the following command from the repo directory:
 ```bash
-./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt
+./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt
 ```
 The above command will store the report in a file `report.txt`.
 A shortened sample output for the above command will look as follows:
 ```text
-Total mutants tested: 229
-Total mutants killed: 203
-
 ╭────────────────────────────────────────────────┬────────────────┬────────────────┬────────────╮
 │ Module                                         │ Mutants tested │ Mutants killed │ Percentage │
 ├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
@@ -66,11 +78,13 @@ Total mutants killed: 203
 ├────────────────────────────────────────────────┼────────────────┼────────────────┼────────────┤
 │ sources/Sum.move::Sum::sum                     │ 4              │ 4              │ 100.00%    │
 ╰────────────────────────────────────────────────┴────────────────┴────────────────┴────────────╯
+Total mutants tested: 229
+Total mutants killed: 203
 ```
 
 The sample `report.txt` generated for the above command contains useful info that can be paired with the `display-report` option:
 ```bash
-$ move-mutation-test display-report coverage -p report.txt --modules Sum
+$ ./target/release/move-mutation-test display-report coverage --path-to-report report.txt --modules Sum
 The legend is shown below in the table format
 ===================================┬==================================
  mutants killed / mutants in total │ Source code file path
@@ -90,9 +104,6 @@ The legend is shown below in the table format
      │ module TestAccount::Sum {
      │     fun sum(x: u128, y: u128): u128 {
  4/4 │         let sum_r = x * y;
-     │         spec {
-     │                 assert sum_r == x+y;
-     │         };
      │
      │         sum_r
      │     }
@@ -134,21 +145,21 @@ _In below examples, the `RUST_LOG` flag is used to provide a more informative ou
 
 To use the tool on only the `Operators` module for the project `simple`, run:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-modules Operators
-./target/release/move-mutation-test display-report coverage -p report.txt --modules Operators
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt --move-2 --mutate-modules Operators
+./target/release/move-mutation-test display-report coverage --path-to-report report.txt --modules Operators
 ```
 ------------------------------------------------------------------------------------------------------------
 To use the tool only on functions called `sum` for the project `simple`, run:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-functions sum
-./target/release/move-mutation-test display-report coverage -p report.txt --modules Operators,Sum
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt --move-2 --mutate-functions sum
+./target/release/move-mutation-test display-report coverage --path-to-report report.txt --modules Operators,Sum
 ```
 In the output for the above command, the tool will mutate both the `Operators::sum` and `Sum::sum` functions.
 
 If the user wants to mutate only the `sum` function in the `Sum` module, the user can use this command:
 ```bash
-RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple -o report.txt --move-2 --mutate-functions sum --mutate-modules Sum
-./target/release/move-mutation-test display-report coverage -p report.txt --modules Sum
+RUST_LOG=info ./target/release/move-mutation-test run --package-dir move-mutator/tests/move-assets/simple --output report.txt --move-2 --mutate-functions sum --mutate-modules Sum
+./target/release/move-mutation-test display-report coverage --path-to-report report.txt --modules Sum
 ```
 
 [nextest]: https://github.com/nextest-rs/nextest

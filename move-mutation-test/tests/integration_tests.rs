@@ -33,8 +33,10 @@ fn test_run_mutation_test(path: &Path, expected_report: String) -> datatest_stab
         dump_state: false,
         filter: None,
         ignore_compile_warnings: false,
-        apply_coverage: true,
-        gas_limit: 1_000,
+        // TODO(rqnsom): maybe we could set it to true, but it would require `aptos` command in
+        // the `build.rs` - using `process::Command` slowed down the execution a lot
+        apply_coverage: false,
+        gas_limit: 2000,
     };
 
     let report_file = PathBuf::from("report.txt");

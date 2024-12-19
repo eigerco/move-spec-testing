@@ -20,6 +20,7 @@ repository = "https://github.com/eigerco/move-spec-testing"
 rust-version = "1.78.0"
 
 [workspace.dependencies]
+ahash = "0.8"
 anyhow = "1.0"
 aptos = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
 aptos-framework = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }

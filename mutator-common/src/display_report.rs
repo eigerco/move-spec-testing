@@ -25,11 +25,22 @@ const COLOR_NONE: Option<Attr> = None;
 
 #[derive(Subcommand)]
 pub enum DisplayReportCmd {
+    /// Summarize the report.
+    Summary,
+
     /// Display report in the coverage format.
-    Coverage,
+    Coverage {
+        /// Include specified modules in the report.
+        #[clap(long, value_parser, default_value = "all")]
+        modules: ModuleFilter,
+    },
 
     /// Display mutants.
     Mutants {
+        /// Include specified modules in the report.
+        #[clap(long, value_parser, default_value = "all")]
+        modules: ModuleFilter,
+
         /// Include specified functions in the output.
         #[clap(long, value_parser, default_value = "all")]
         functions: FunctionFilter,
@@ -44,16 +55,31 @@ pub enum DisplayReportCmd {
 #[derive(Parser)]
 pub struct DisplayReportOptions {
     /// Report location. The default file is "report.txt" under the same directory.
-    #[clap(global = true, short = 'p', long, default_value = "report.txt")]
+    #[clap(global = true, long, default_value = "report.txt")]
     pub path_to_report: PathBuf,
-
-    /// Include specified modules in the report.
-    #[clap(global = true, short = 'm', long, value_parser, default_value = "all")]
-    pub modules: ModuleFilter,
 
     /// Display report subcommands.
     #[clap(subcommand)]
     pub cmds: DisplayReportCmd,
+}
+
+impl DisplayReportOptions {
+    /// Execute the command.
+    pub fn execute(&self) -> Result<()> {
+        let path_to_report = &self.path_to_report;
+
+        match &self.cmds {
+            DisplayReportCmd::Summary => display_summary(path_to_report),
+            DisplayReportCmd::Coverage { modules } => {
+                display_coverage_on_screen(path_to_report, modules)
+            },
+            DisplayReportCmd::Mutants {
+                modules,
+                functions,
+                mutants,
+            } => display_mutants_on_screen(path_to_report, modules, functions, mutants),
+        }
+    }
 }
 
 /// Filter for mutants to be included in the output.
@@ -62,18 +88,18 @@ pub enum MutantFilter {
     #[default]
     Alive,
     Killed,
-    Both,
+    All,
 }
 
 impl MutantFilter {
     /// Check whether the filter allows killed mutants.
     fn contains_killed(&self) -> bool {
-        *self == Self::Both || *self == Self::Killed
+        *self == Self::All || *self == Self::Killed
     }
 
     /// Check whether the filter allows alive mutants.
     fn contains_alive(&self) -> bool {
-        *self == Self::Both || *self == Self::Alive
+        *self == Self::All || *self == Self::Alive
     }
 }
 
@@ -84,7 +110,7 @@ impl FromStr for MutantFilter {
         match s {
             "alive" => Ok(MutantFilter::Alive),
             "killed" => Ok(MutantFilter::Killed),
-            "both" => Ok(MutantFilter::Both),
+            "all" => Ok(MutantFilter::All),
             _ => Err("Invalid mutant option. Allowed only: ".to_owned()),
         }
     }
@@ -405,6 +431,13 @@ pub fn display_mutants_on_screen(
     Ok(())
 }
 
+/// Summarize the report.
+pub fn display_summary(path_to_report: impl AsRef<Path>) -> Result<()> {
+    let report = Report::load_from_json_file(path_to_report.as_ref())?;
+    report.print_table();
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -435,8 +468,11 @@ mod tests {
         assert!(ret.is_ok());
 
         let functions = FunctionFilter::All;
-        let mutant_filter = MutantFilter::Both;
-        let ret = display_mutants_on_screen(report_path, &modules, &functions, &mutant_filter);
+        let mutant_filter = MutantFilter::All;
+        let ret = display_mutants_on_screen(&report_path, &modules, &functions, &mutant_filter);
+        assert!(ret.is_ok());
+
+        let ret = display_summary(report_path);
         assert!(ret.is_ok());
     }
 
@@ -448,8 +484,11 @@ mod tests {
         assert!(ret.is_err());
 
         let functions = FunctionFilter::All;
-        let mutant_filter = MutantFilter::Both;
-        let ret = display_mutants_on_screen(path, &modules, &functions, &mutant_filter);
+        let mutant_filter = MutantFilter::Alive;
+        let ret = display_mutants_on_screen(&path, &modules, &functions, &mutant_filter);
+        assert!(ret.is_err());
+
+        let ret = display_summary(path);
         assert!(ret.is_err());
     }
 }

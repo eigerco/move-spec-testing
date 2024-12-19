@@ -3,14 +3,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::report::Mutation;
+use ahash::RandomState;
 use codespan::FileId;
 use std::{
     fmt,
     fmt::{Debug, Display},
+    hash::Hash,
 };
 
 /// Mutation result that contains the mutated source code and the modification that was applied.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct MutantInfo {
     /// The mutated source code.
     pub mutated_source: String,
@@ -25,6 +27,12 @@ impl MutantInfo {
             mutated_source,
             mutation,
         }
+    }
+
+    /// Calculates the unique hash of the mutant.
+    pub fn unique_id(&self) -> u64 {
+        let fixed_randomness = RandomState::with_seeds(1, 2, 3, 4);
+        fixed_randomness.hash_one(self)
     }
 }
 

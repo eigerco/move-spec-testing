@@ -99,12 +99,16 @@
       },
       {
         "module_func": "BinaryReplacement::is_zero_silly_code",
-        "tested": 11,
-        "killed": 8,
+        "tested": 21,
+        "killed": 14,
         "mutants_alive_diffs": [
           "--- original\n+++ modified\n@@ -28,7 +28,7 @@\n     // and that would be a clear indication of silly code that has\n     // one identical reduntant check.\n     fun is_zero_silly_code(x: u64): bool {\n-        if (0 == x)\n+        if (false)\n             return true;\n\n         // Another check which does the same is silly:\n",
           "--- original\n+++ modified\n@@ -28,7 +28,7 @@\n     // and that would be a clear indication of silly code that has\n     // one identical reduntant check.\n     fun is_zero_silly_code(x: u64): bool {\n-        if (0 == x)\n+        if (0 > x)\n             return true;\n\n         // Another check which does the same is silly:\n",
-          "--- original\n+++ modified\n@@ -28,7 +28,7 @@\n     // and that would be a clear indication of silly code that has\n     // one identical reduntant check.\n     fun is_zero_silly_code(x: u64): bool {\n-        if (0 == x)\n+        if (18446744073709551615 == x)\n             return true;\n\n         // Another check which does the same is silly:\n"
+          "--- original\n+++ modified\n@@ -28,7 +28,7 @@\n     // and that would be a clear indication of silly code that has\n     // one identical reduntant check.\n     fun is_zero_silly_code(x: u64): bool {\n-        if (0 == x)\n+        if (18446744073709551615 == x)\n             return true;\n\n         // Another check which does the same is silly:\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (false)\n             return true;\n\n         false\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (x < 0)\n             return true;\n\n         false\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (x == 18446744073709551615)\n             return true;\n\n         false\n",
+          "--- original\n+++ modified\n@@ -33,7 +33,7 @@\n\n         // Another check which does the same is silly:\n         if (x == 0)\n-            return true;\n+            return false;\n\n         false\n     }\n"
         ],
         "mutants_killed_diff": [
           "--- original\n+++ modified\n@@ -28,7 +28,7 @@\n     // and that would be a clear indication of silly code that has\n     // one identical reduntant check.\n     fun is_zero_silly_code(x: u64): bool {\n-        if (0 == x)\n+        if (true)\n             return true;\n\n         // Another check which does the same is silly:\n",
@@ -114,6 +118,12 @@
           "--- original\n+++ modified\n@@ -28,7 +28,7 @@\n     // and that would be a clear indication of silly code that has\n     // one identical reduntant check.\n     fun is_zero_silly_code(x: u64): bool {\n-        if (0 == x)\n+        if (0 <= x)\n             return true;\n\n         // Another check which does the same is silly:\n",
           "--- original\n+++ modified\n@@ -28,7 +28,7 @@\n     // and that would be a clear indication of silly code that has\n     // one identical reduntant check.\n     fun is_zero_silly_code(x: u64): bool {\n-        if (0 == x)\n+        if (1 == x)\n             return true;\n\n         // Another check which does the same is silly:\n",
           "--- original\n+++ modified\n@@ -29,7 +29,7 @@\n     // one identical reduntant check.\n     fun is_zero_silly_code(x: u64): bool {\n         if (0 == x)\n-            return true;\n+            return false;\n\n         // Another check which does the same is silly:\n         if (x == 0)\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (true)\n             return true;\n\n         false\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (!(x == 0))\n             return true;\n\n         false\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (x != 0)\n             return true;\n\n         false\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (x > 0)\n             return true;\n\n         false\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (x >= 0)\n             return true;\n\n         false\n",
+          "--- original\n+++ modified\n@@ -32,7 +32,7 @@\n             return true;\n\n         // Another check which does the same is silly:\n-        if (x == 0)\n+        if (x == 1)\n             return true;\n\n         false\n",
           "--- original\n+++ modified\n@@ -35,7 +35,7 @@\n         if (x == 0)\n             return true;\n\n-        false\n+        true\n     }\n\n     #[test]\n"
         ]
       }
@@ -327,12 +337,17 @@
     "sources/StillSimple.move": [
       {
         "module_func": "StillSimple::sample1",
-        "tested": 18,
+        "tested": 23,
         "killed": 15,
         "mutants_alive_diffs": [
           "--- original\n+++ modified\n@@ -1,6 +1,6 @@\n module TestAccount::StillSimple {\n     fun sample1(x: u128, y: u128) {\n-        let _sum_r = x + y;\n+        let _sum_r = x * y;\n\n         // Impossible condition here:\n         if ((x + y) < 0) abort 1;\n",
           "--- original\n+++ modified\n@@ -3,7 +3,7 @@\n         let _sum_r = x + y;\n\n         // Impossible condition here:\n-        if ((x + y) < 0) abort 1;\n+        if (false) abort 1;\n     }\n\n     // This test will generate mutants that will survive and indicate the impossible condition in the code.\n",
-          "--- original\n+++ modified\n@@ -3,7 +3,7 @@\n         let _sum_r = x + y;\n\n         // Impossible condition here:\n-        if ((x + y) < 0) abort 1;\n+        if ((x * y) < 0) abort 1;\n     }\n\n     // This test will generate mutants that will survive and indicate the impossible condition in the code.\n"
+          "--- original\n+++ modified\n@@ -3,7 +3,7 @@\n         let _sum_r = x + y;\n\n         // Impossible condition here:\n-        if ((x + y) < 0) abort 1;\n+        if ((x * y) < 0) abort 1;\n     }\n\n     // This test will generate mutants that will survive and indicate the impossible condition in the code.\n",
+          "--- original\n+++ modified\n@@ -3,7 +3,7 @@\n         let _sum_r = x + y;\n\n         // Impossible condition here:\n-        if ((x + y) < 0) abort 1;\n+        if ((x + y) < 0) {};\n     }\n\n     // This test will generate mutants that will survive and indicate the impossible condition in the code.\n",
+          "--- original\n+++ modified\n@@ -3,7 +3,7 @@\n         let _sum_r = x + y;\n\n         // Impossible condition here:\n-        if ((x + y) < 0) abort 1;\n+        if ((x + y) < 0) abort 0;\n     }\n\n     // This test will generate mutants that will survive and indicate the impossible condition in the code.\n",
+          "--- original\n+++ modified\n@@ -3,7 +3,7 @@\n         let _sum_r = x + y;\n\n         // Impossible condition here:\n-        if ((x + y) < 0) abort 1;\n+        if ((x + y) < 0) abort 18446744073709551615;\n     }\n\n     // This test will generate mutants that will survive and indicate the impossible condition in the code.\n",
+          "--- original\n+++ modified\n@@ -3,7 +3,7 @@\n         let _sum_r = x + y;\n\n         // Impossible condition here:\n-        if ((x + y) < 0) abort 1;\n+        if ((x + y) < 0) abort 2;\n     }\n\n     // This test will generate mutants that will survive and indicate the impossible condition in the code.\n",
+          "--- original\n+++ modified\n@@ -3,7 +3,7 @@\n         let _sum_r = x + y;\n\n         // Impossible condition here:\n-        if ((x + y) < 0) abort 1;\n+        if ((x + y) < 0) abort 0;\n     }\n\n     // This test will generate mutants that will survive and indicate the impossible condition in the code.\n"
         ],
         "mutants_killed_diff": [
           "--- original\n+++ modified\n@@ -1,6 +1,6 @@\n module TestAccount::StillSimple {\n     fun sample1(x: u128, y: u128) {\n-        let _sum_r = x + y;\n+        let _sum_r = x - y;\n\n         // Impossible condition here:\n         if ((x + y) < 0) abort 1;\n",
